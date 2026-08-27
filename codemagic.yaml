@@ -1,12 +1,12 @@
 # ==========================================
-# Jacky Fall Monitor CI/CD Build Script (Fixed v3)
+# Jacky Fall Monitor CI/CD Build Script (Fixed v4)
 # Designed for Windows 11 + iPhone 16PM Sideloading
 # ==========================================
 workflows:
   ios-unsigned-build:
     name: Jacky Fall Monitor - iOS Unsigned Build
     max_build_duration: 30
-    instance_type: mac_mini_m1
+    instance_type: mac_mini_m1 # 對齊官方 M1 實例
     environment:
       flutter: stable
       xcode: latest
@@ -20,34 +20,58 @@ workflows:
       - name: 1. 獲取 Flutter 相依庫
         script: |
           flutter pub get
-      - name: 2. 注入虛擬 Team ID 與免簽名設定並編譯
+      - name: 2. 注入三維一體免簽名設定並編譯
         script: |
-          # 💡 Step A: 寫入臨時 Python 補丁腳本，避免 YAML/Shell 轉義符衝突
+          # 💡 Step A: 寫入臨時 Python 補丁，強制主專案設為 Manual 簽名模式
           cat << 'EOF' > patch_xcode.py
           import re
           path = "ios/Runner.xcodeproj/project.pbxproj"
           with open(path, "r", encoding="utf-8") as f:
               content = f.read()
-          # 替換 buildSettings 區塊，動態注入虛擬的 DEVELOPMENT_TEAM ID
-          new_content = re.sub(r'buildSettings\s*=\s*\{', 'buildSettings = {\n\t\t\tDEVELOPMENT_TEAM = "DUMMY12345";', content)
+          # 注入虛擬 DEVELOPMENT_TEAM 且強制設為 Manual 簽名模式，防止 Xcode 聯網校驗
+          new_content = re.sub(r'buildSettings\s*=\s*\{', 'buildSettings = {\n\t\t\tDEVELOPMENT_TEAM = "DUMMY12345";\n\t\t\tCODE_SIGN_STYLE = Manual;', content)
+          # 清除任何可能存在的 Code Sign Identity
+          new_content = new_content.replace('CODE_SIGN_IDENTITY = "iPhone Developer";', 'CODE_SIGN_IDENTITY = "";')
           with open(path, "w", encoding="utf-8") as f:
               f.write(new_content)
-          print("Successfully patched project.pbxproj with dummy DEVELOPMENT_TEAM!")
+          print("Successfully patched project.pbxproj with manual signing and dummy DEVELOPMENT_TEAM!")
           EOF
 
-          # 💡 Step B: 執行 Python 補丁
-          python3 patch_xcode.py
+          # 💡 Step B: 寫入臨時 Python 補丁，強制 CocoaPods 插件也禁用簽名
+          cat << 'EOF' > patch_podfile.py
+          import os
+          path = "ios/Podfile"
+          if os.path.exists(path):
+              with open(path, "r", encoding="utf-8") as f:
+                  content = f.read()
+              # 在 Podfile post_install 中動態注入禁用簽名指令，防止第三方 Plugin 編譯失敗
+              target_str = 'flutter_additional_ios_build_settings(target)'
+              if target_str in content:
+                  new_str = target_str + '\n    target.build_configurations.each do |config|\n      config.build_settings["CODE_SIGNING_ALLOWED"] = "NO"\n      config.build_settings["CODE_SIGNING_REQUIRED"] = "NO"\n      config.build_settings["CODE_SIGN_IDENTITY"] = ""\n      config.build_settings["DEVELOPMENT_TEAM"] = "DUMMY12345"\n    end'
+                  content = content.replace(target_str, new_str)
+                  with open(path, "w", encoding="utf-8") as f:
+                      f.write(content)
+                  print("Successfully patched Podfile with CocoaPods codesigning bypass!")
+              else:
+                  print("Warning: post_install trigger not found in Podfile")
+          else:
+              print("Warning: Podfile not found")
+          EOF
 
-          # 💡 Step C: 向 Release.xcconfig 注入最高優先級的禁用簽名指令
+          # 💡 Step C: 執行 Python 雙重補丁
+          python3 patch_xcode.py
+          python3 patch_podfile.py
+
+          # 💡 Step D: 向 Release.xcconfig 注入最高優先級的禁用簽名指令
           echo "CODE_SIGNING_ALLOWED=NO" >> ios/Flutter/Release.xcconfig
           echo "CODE_SIGNING_REQUIRED=NO" >> ios/Flutter/Release.xcconfig
           echo "CODE_SIGN_IDENTITY=" >> ios/Flutter/Release.xcconfig
           
-          # 💡 Step D: 執行免簽名實體 iOS 編譯
+          # 💡 Step E: 執行免簽名實體 iOS 編譯
           flutter build ios --release --no-codesign
       - name: 3. 封裝為 Sideloadly 相容的實體 .ipa 檔案
         script: |
-          # 在 Windows 下繞過 Mac 證書的關鍵！我們手動創建標準 iOS 安裝包 Payload 結構
+          # 手動創建標準 iOS 安裝包 Payload 結構
           mkdir -p build/ios/ipa/Payload
           cp -r build/ios/iphoneos/Runner.app build/ios/ipa/Payload
           cd build/ios/ipa
