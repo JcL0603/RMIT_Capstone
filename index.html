@@ -52,12 +52,12 @@
         Jacky Lin | RMIT Capstone Project 2026
     </footer>
 
-    <!-- Web BLE 核心控制邏輯 -->
+  <!-- Web BLE v2 核心控制邏輯（全面升級 acceptAllDevices） -->
     <script>
         const targetName = "Jacky_FallMonitor";
-        const serviceUuid = "0000fff0-0000-1000-8000-00805f9b34fb"; // 統一標準 128-bit UUID
-        const stateCharUuid = "0000fff1-0000-1000-8000-00805f9b34fb";
-        const avmCharUuid = "0000fff2-0000-1000-8000-00805f9b34fb";
+        const serviceUuid = "0000fff0-0000-1000-8000-00805f9b34fb"; // FFF0 128-bit 擴展 UUID
+        const stateCharUuid = "0000fff1-0000-1000-8000-00805f9b34fb"; // FFF1
+        const avmCharUuid = "0000fff2-0000-1000-8000-00805f9b34fb"; // FFF2
 
         let device = null;
         let audioCtx = null;
@@ -70,14 +70,12 @@
         const avmValText = document.getElementById('avm-val');
         const btnScan = document.getElementById('btn-scan');
 
-        // 初始化 Web Audio API 合成器，完全免除外部 MP3 載入失敗問題
         function initAudio() {
             if (!audioCtx) {
                 audioCtx = new (window.AudioContext || window.webkitAudioContext)();
             }
         }
 
-        // 程式化合成高分貝警笛聲
         let sirenInterval = null;
         function startSiren() {
             initAudio();
@@ -105,16 +103,18 @@
 
         // 搜尋並連接手環
         btnScan.addEventListener('click', async () => {
-            initAudio(); // 用戶點擊時必須啟用 Audio Context (iOS 瀏覽器安全要求)
+            initAudio(); // iOS 安全規範：必須在用戶主動點擊時激活音訊上下文
             try {
-                connStateSpan.innerText = "正在掃描手環...";
+                connStateSpan.className = "px-4 py-1.5 rounded-full text-xs font-semibold bg-yellow-500/20 text-yellow-400 border border-yellow-500/30";
+                connStateSpan.innerText = "正在開啟藍牙掃描清單...";
+
+                // 💡 降維打擊補丁：直接採用 acceptAllDevices，徹底避開廣播名稱不匹配的快取 Bug！
                 device = await navigator.bluetooth.requestDevice({
-                    filters: [{ name: targetName }],
-                    optionalServices: [serviceUuid]
+                    acceptAllDevices: true,
+                    optionalServices: [serviceUuid] // 必須在此聲明我們要訪問的 FFF0 服務，否則 iOS 底層會阻斷後續的 GATT 數據傳輸
                 });
 
-                connStateSpan.className = "px-4 py-1.5 rounded-full text-xs font-semibold bg-yellow-500/20 text-yellow-400 border border-yellow-500/30";
-                connStateSpan.innerText = "正在建立連線...";
+                connStateSpan.innerText = `正在連接至: ${device.name || "未命名手環"}...`;
 
                 const server = await device.gatt.connect();
                 connStateSpan.className = "px-4 py-1.5 rounded-full text-xs font-semibold bg-green-500/20 text-green-400 border border-green-500/30";
@@ -132,13 +132,12 @@
                     updateSystemState(val);
                 });
 
-                // 訂閱 FFF2 (實時 AVM 浮點數波形)
+                // 訂閱 FFF2 (實時 AVM)
                 const avmChar = await service.getCharacteristic(avmCharUuid);
                 await avmChar.startNotifications();
                 avmChar.addEventListener('characteristicvaluechanged', (e) => {
                     const val = e.target.value;
-                    // 解析 Little Endian Float32 (對齊 V12 韌體)
-                    const avm = val.getFloat32(0, true);
+                    const avm = val.getFloat32(0, true); // Little Endian Float32 解析
                     avmValText.innerHTML = `${avm.toFixed(3)} <span class="text-sm text-gray-500">m/s²</span>`;
                 });
 
@@ -156,10 +155,8 @@
             stopSiren();
         }
 
-        // 系統狀態控制與物理反應
         function updateSystemState(state) {
             if (state === 0) {
-                // Standby 正常狀態
                 statusRing.className = "w-64 h-64 rounded-full flex flex-col items-center justify-center border-8 border-green-500 bg-green-500/10 shadow-[0_0_50px_rgba(16,185,129,0.3)] transition-all duration-300";
                 statusIcon.innerHTML = `<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"></path>`;
                 statusIcon.className = "w-24 h-24 text-green-500";
@@ -169,35 +166,21 @@
                 smsTriggered = false;
             } 
             else if (state === 1) {
-                // Prefall 預警狀態
                 statusRing.className = "w-64 h-64 rounded-full flex flex-col items-center justify-center border-8 border-yellow-500 bg-yellow-500/10 shadow-[0_0_50px_rgba(245,158,11,0.3)] transition-all duration-300";
                 statusIcon.innerHTML = `<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path>`;
                 statusIcon.className = "w-24 h-24 text-yellow-500";
                 statusText.innerText = "注意：檢測到跌倒前兆！";
                 statusText.className = "text-lg font-bold text-yellow-500 mt-4 tracking-wide";
-                
-                // 輕微單次震動 (對應 Web API)
-                if (navigator.vibrate) {
-                    navigator.vibrate(300);
-                }
+                if (navigator.vibrate) { navigator.vibrate(300); }
             } 
             else if (state === 2) {
-                // Fall Crash 嚴重跌倒
                 statusRing.className = "w-64 h-64 rounded-full flex flex-col items-center justify-center border-8 border-red-500 bg-red-500/10 shadow-[0_0_50px_rgba(239,68,68,0.5)] animate-pulse transition-all duration-300";
                 statusIcon.innerHTML = `<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>`;
                 statusIcon.className = "w-24 h-24 text-red-500";
                 statusText.innerText = "危險！發生嚴重跌倒！";
                 statusText.className = "text-lg font-bold text-red-500 mt-4 tracking-wide";
-                
-                // 強烈持續震動
-                if (navigator.vibrate) {
-                    navigator.vibrate([500, 200, 500, 200, 500]);
-                }
-                
-                // 響起警報聲
+                if (navigator.vibrate) { navigator.vibrate([1]); }
                 startSiren();
-
-                // 觸發高精度定位並拉起簡訊
                 if (!smsTriggered) {
                     smsTriggered = true;
                     triggerSmsAlert();
@@ -205,20 +188,16 @@
             }
         }
 
-        // 定位並發送求救簡訊
         function triggerSmsAlert() {
             if (navigator.geolocation) {
                 navigator.geolocation.getCurrentPosition((pos) => {
                     const lat = pos.coords.latitude;
                     const lon = pos.coords.longitude;
                     const mapUrl = `https://www.google.com/maps/search/?api=1&query=${lat},${lon}`;
-                    const msg = `【緊急求救】Jacky跌倒監測系統檢測到使用者發生嚴重跌倒！目前GPS位置：${mapUrl}`;
-                    
-                    // 呼叫 iOS 簡訊接口
+                    const msg = `【緊急求救】Jacky 跌倒監測系統檢測到使用者發生嚴重跌倒！目前 GPS 位置：${mapUrl}`;
                     window.location.href = `sms:+85212345678&body=${encodeURIComponent(msg)}`;
                 }, (err) => {
-                    // 若定位失敗，發送無 GPS 的簡訊
-                    window.location.href = `sms:+85212345678&body=${encodeURIComponent("【緊急求救】Jacky跌倒監測系統檢測到使用者發生嚴重跌倒！(未獲取到GPS位置)")}`;
+                    window.location.href = `sms:+85212345678&body=${encodeURIComponent("【緊急求救】Jacky 跌倒監測系統檢測到使用者發生嚴重跌倒！(定位失敗)")}`;
                 }, { enableHighAccuracy: true });
             }
         }
