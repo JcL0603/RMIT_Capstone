@@ -1,12 +1,12 @@
 # ==========================================
-# Jacky Fall Monitor CI/CD Build Script (Fixed v2)
+# Jacky Fall Monitor CI/CD Build Script (Fixed v3)
 # Designed for Windows 11 + iPhone 16PM Sideloading
 # ==========================================
 workflows:
   ios-unsigned-build:
     name: Jacky Fall Monitor - iOS Unsigned Build
     max_build_duration: 30
-    instance_type: mac_mini_m1 # 對齊官方 M1 實例
+    instance_type: mac_mini_m1
     environment:
       flutter: stable
       xcode: latest
@@ -20,15 +20,30 @@ workflows:
       - name: 1. 獲取 Flutter 相依庫
         script: |
           flutter pub get
-      - name: 2. 注入免簽名設定並編譯 iOS
+      - name: 2. 注入虛擬 Team ID 與免簽名設定並編譯
         script: |
-          # 💡 這是繞過 Xcode 實體機編譯檢查的核心關鍵！
-          # 我們向 Flutter 內置的 Release.xcconfig 配置文件動態追加參數，迫使 Xcode 內核關閉簽名與 Team ID 預檢
+          # 💡 Step A: 寫入臨時 Python 補丁腳本，避免 YAML/Shell 轉義符衝突
+          cat << 'EOF' > patch_xcode.py
+          import re
+          path = "ios/Runner.xcodeproj/project.pbxproj"
+          with open(path, "r", encoding="utf-8") as f:
+              content = f.read()
+          # 替換 buildSettings 區塊，動態注入虛擬的 DEVELOPMENT_TEAM ID
+          new_content = re.sub(r'buildSettings\s*=\s*\{', 'buildSettings = {\n\t\t\tDEVELOPMENT_TEAM = "DUMMY12345";', content)
+          with open(path, "w", encoding="utf-8") as f:
+              f.write(new_content)
+          print("Successfully patched project.pbxproj with dummy DEVELOPMENT_TEAM!")
+          EOF
+
+          # 💡 Step B: 執行 Python 補丁
+          python3 patch_xcode.py
+
+          # 💡 Step C: 向 Release.xcconfig 注入最高優先級的禁用簽名指令
           echo "CODE_SIGNING_ALLOWED=NO" >> ios/Flutter/Release.xcconfig
           echo "CODE_SIGNING_REQUIRED=NO" >> ios/Flutter/Release.xcconfig
           echo "CODE_SIGN_IDENTITY=" >> ios/Flutter/Release.xcconfig
           
-          # 執行免簽名實體 iOS 編譯
+          # 💡 Step D: 執行免簽名實體 iOS 編譯
           flutter build ios --release --no-codesign
       - name: 3. 封裝為 Sideloadly 相容的實體 .ipa 檔案
         script: |
@@ -38,4 +53,4 @@ workflows:
           cd build/ios/ipa
           zip -r jacky_fall_monitor.ipa Payload
     artifacts:
-      - build/ios/ipa/*.ipa # 📥 編譯成功後，把這個 .ipa 提供給 Jacky 下載！
+      - build/ios/ipa/*.ipa # 📥 編譯成功後，提供 .ipa 檔案下載！
