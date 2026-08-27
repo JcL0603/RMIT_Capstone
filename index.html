@@ -27,23 +27,29 @@
 
     <!-- Header Navigation -->
     <header class="bg-gray-900 p-4 shadow-md text-center border-b border-gray-800">
-        <h1 class="text-xl font-bold tracking-widest text-blue-400">JACKY'S FALL TELEMETRY</h1>
+        <h1 class="text-xl font-bold tracking-widest text-blue-400 font-mono">JACKY'S FALL TELEMETRY</h1>
         <p class="text-[10px] text-gray-500 mt-1">Edge TinyML Web BLE Real-Time Monitor v5.0</p>
     </header>
 
     <!-- Main Content Area -->
-    <main class="flex-grow flex flex-col items-center justify-center p-4 space-y-6">
+    <main class="flex-grow flex flex-col items-center justify-center p-4 space-y-4">
         
-        <!-- Connection Status -->
-        <div class="text-center">
+        <!-- Connection Status & Data Heartbeat -->
+        <div class="flex flex-col items-center space-y-1">
             <span id="conn-state" class="px-4 py-1.5 rounded-full text-xs font-mono font-bold bg-red-500/20 text-red-400 border border-red-500/30">
                 DISCONNECTED
             </span>
+            <!-- Heartbeat indicator (Visual proof of live transmission) -->
+            <div class="flex items-center space-x-2 text-[10px] text-gray-500 mt-1">
+                <span>BLE Rx:</span>
+                <span id="heartbeat-dot" class="w-2.5 h-2.5 rounded-full bg-gray-800 transition-all duration-100"></span>
+                <span id="packet-counter" class="font-mono">0 pkts</span>
+            </div>
         </div>
 
         <!-- 5-Class Dynamic SVG Icon Display -->
         <div id="status-icon-container" class="flex items-center justify-center">
-            <div id="status-ring" class="w-44 h-44 rounded-full flex flex-col items-center justify-center border-8 border-green-500 bg-green-500/10 shadow-[0_0_40px_rgba(16,185,129,0.25)] transition-all duration-300">
+            <div id="status-ring" class="w-40 h-44 rounded-full flex flex-col items-center justify-center border-8 border-green-500 bg-green-500/10 shadow-[0_0_40px_rgba(16,185,129,0.25)] transition-all duration-300">
                 <!-- Static (0) Shield Icon Default -->
                 <svg id="status-icon" class="w-16 h-16 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"></path>
@@ -51,25 +57,40 @@
             </div>
         </div>
 
-        <!-- Live Metrics Section -->
-        <div class="grid grid-cols-2 gap-4 w-full max-w-sm">
-            <!-- AVM Numerical Readout -->
-            <div class="bg-gray-900 border border-gray-800 rounded-2xl px-4 py-3 text-center shadow-lg">
-                <p class="text-[9px] text-gray-500 uppercase tracking-widest mb-1">Signal Vector (AVM)</p>
-                <p class="text-lg font-mono font-bold text-blue-400" id="avm-val">0.000 <span class="text-xs text-gray-500">m/s²</span></p>
+        <!-- Settings Card (Dynamic recipient configuration) -->
+        <div class="w-full max-w-sm bg-gray-900 border border-gray-800 rounded-2xl p-3.5 shadow-lg">
+            <p class="text-[9px] text-gray-500 uppercase tracking-widest text-center mb-2">SOS Configuration</p>
+            <div class="flex items-center space-x-2">
+                <span class="text-xs text-gray-400 font-mono">Recipient:</span>
+                <input id="phone-input" type="text" value="+85267347740" class="flex-grow bg-gray-950 border border-gray-800 rounded px-2.5 py-1 text-xs font-mono text-blue-400 focus:outline-none focus:border-blue-500">
+            </div>
+        </div>
+
+        <!-- Live Metrics Section (Perfect splitting as requested) -->
+        <div class="grid grid-cols-3 gap-2.5 w-full max-w-sm">
+            <!-- Box 1: Signal Vector (AVM) -->
+            <div class="bg-gray-900 border border-gray-800 rounded-xl px-2 py-3 text-center shadow-lg">
+                <p class="text-[8px] text-gray-500 uppercase tracking-widest mb-1">Signal (AVM)</p>
+                <p class="text-sm font-mono font-bold text-blue-400" id="avm-val">0.000 <span class="text-[10px] text-gray-500">m/s²</span></p>
             </div>
             
-            <!-- TinyML Active Prediction Class with Probability -->
-            <div class="bg-gray-900 border border-gray-800 rounded-2xl px-4 py-3 text-center shadow-lg">
-                <p class="text-[9px] text-gray-500 uppercase tracking-widest mb-1">Active Classifier</p>
-                <p class="text-base font-bold text-green-500 truncate" id="model-class">STATIC (0%)</p>
+            <!-- Box 2: Active Classifier (Class Name Only - No %!) -->
+            <div class="bg-gray-900 border border-gray-800 rounded-xl px-2 py-3 text-center shadow-lg">
+                <p class="text-[8px] text-gray-500 uppercase tracking-widest mb-1">Classifier</p>
+                <p class="text-sm font-bold text-green-500 truncate mt-0.5" id="model-class">STATIC</p>
+            </div>
+
+            <!-- Box 3: Classifier Confidence (New Independent Window!) -->
+            <div class="bg-gray-900 border border-gray-800 rounded-xl px-2 py-3 text-center shadow-lg">
+                <p class="text-[8px] text-gray-500 uppercase tracking-widest mb-1">Confidence</p>
+                <p class="text-sm font-mono font-bold text-green-400 mt-0.5" id="model-conf">100%</p>
             </div>
         </div>
 
         <!-- Real-Time AVM Line Waveform Plotter -->
         <div class="w-full max-w-sm bg-gray-900 border border-gray-800 rounded-2xl p-3 shadow-lg">
             <p class="text-[9px] text-gray-500 uppercase tracking-widest mb-2 text-center">Real-Time Waveform Plotter (5Hz)</p>
-            <canvas id="avm-chart" class="w-full h-24 bg-gray-950 rounded-lg"></canvas>
+            <canvas id="avm-chart" class="w-full h-20 bg-gray-950 rounded-lg"></canvas>
         </div>
 
         <!-- 10-Second Crisis Countdown Card (Default Hidden) -->
@@ -84,10 +105,17 @@
             </button>
         </div>
 
+        <!-- Scrolling System Event Logger (Academic presentation feature) -->
+        <div class="w-full max-w-sm bg-gray-900 border border-gray-800 rounded-2xl p-3 shadow-lg text-left">
+            <p class="text-[9px] text-gray-500 uppercase tracking-widest mb-1.5 text-center">System Event Log</p>
+            <div id="event-log" class="h-16 overflow-y-auto bg-gray-950 rounded-lg p-2 font-mono text-[9px] text-gray-400 space-y-1">
+                <div class="text-gray-600">[System initialized] Ready for pairing...</div>
+            </div>
+        </div>
+
         <!-- Fall History & Logging -->
-        <div id="history-card" class="w-full max-w-sm bg-gray-900 border border-gray-800 rounded-2xl p-3 shadow-lg text-center">
-            <p class="text-[9px] text-gray-500 uppercase tracking-widest mb-1">Emergency Timestamp Log</p>
-            <p id="fall-timestamp" class="text-xs font-mono text-gray-400">No anomalous events recorded</p>
+        <div id="history-card" class="w-full max-w-sm bg-gray-900 border border-gray-800 rounded-2xl p-2.5 shadow-lg text-center">
+            <p id="fall-timestamp" class="text-[10px] font-mono text-gray-500">No anomalous events recorded</p>
         </div>
 
         <!-- Control Action Button -->
@@ -112,19 +140,18 @@
         const classCharUuid = "0000fff3-0000-1000-8000-00805f9b34fb"; // FFF3: Winner Class (0:STATIC, 1:WALK, 2:STAIRS, 3:PRE-FALL, 4:FALL)
         const confCharUuid = "0000fff4-0000-1000-8000-00805f9b34fb"; // FFF4: Winner Confidence % (0-100)
 
-        // 🟢 Default Recipient Configured (Jacky's Target)
-        const emergencyContact = "+85267347740";
-
         let device = null;
         let audioCtx = null;
         let smsTimer = null;
         let countdownVal = 10;
         let countdownInterval = null;
         let isAlertActive = false;
+        let packetCount = 0;
 
         // Dynamic State Storage
         let currentWinnerClass = 0;
-        let currentConfidence = 0;
+        let currentConfidence = 100;
+        let fff3Supported = false; // Graceful fallback flag
 
         // SVGs for the 5 distinct classes
         const classSVGs = {
@@ -165,25 +192,42 @@
         const statusText = document.getElementById('status-text');
         const avmValText = document.getElementById('avm-val');
         const modelClassText = document.getElementById('model-class');
+        const modelConfText = document.getElementById('model-conf');
         const btnScan = document.getElementById('btn-scan');
         const countdownCard = document.getElementById('countdown-card');
         const countdownTimerSpan = document.getElementById('countdown-timer');
         const btnCancelSms = document.getElementById('btn-cancel-sms');
         const timestampText = document.getElementById('fall-timestamp');
+        const eventLog = document.getElementById('event-log');
 
-        // Setup Canvas Resolution dynamically
         function setupCanvas() {
             canvas.width = canvas.parentElement.clientWidth - 24;
-            canvas.height = 96;
+            canvas.height = 80;
             drawChart();
         }
         window.addEventListener('resize', setupCanvas);
 
+        function logEvent(msg) {
+            const entry = document.createElement('div');
+            const time = new Date().toLocaleTimeString();
+            entry.innerHTML = `<span class="text-blue-500 font-bold">[${time}]</span> ${msg}`;
+            eventLog.appendChild(entry);
+            eventLog.scrollTop = eventLog.scrollHeight;
+        }
+
+        function triggerHeartbeat() {
+            packetCount++;
+            document.getElementById('packet-counter').innerText = `${packetCount} pkts`;
+            const dot = document.getElementById('heartbeat-dot');
+            dot.className = "w-2.5 h-2.5 rounded-full bg-green-400 shadow-[0_0_8px_rgba(74,222,128,0.7)]";
+            setTimeout(() => {
+                dot.className = "w-2.5 h-2.5 rounded-full bg-green-950";
+            }, 100);
+        }
+
         // Hardware-Accelerated Line Plotter
         function drawChart() {
             ctx.clearRect(0, 0, canvas.width, canvas.height);
-            
-            // Draw gridlines
             ctx.strokeStyle = '#1e293b';
             ctx.lineWidth = 1;
             for(let i = 1; i < 4; i++) {
@@ -196,23 +240,17 @@
 
             if(avmHistory.length === 0) return;
 
-            // Draw line wave
             ctx.strokeStyle = '#38bdf8';
-            ctx.lineWidth = 2.5;
+            ctx.lineWidth = 2;
             ctx.beginPath();
-
             const sliceWidth = canvas.width / (maxPoints - 1);
             let x = 0;
 
             for(let i = 0; i < avmHistory.length; i++) {
                 const normalizedAVM = avmHistory[i];
                 const y = canvas.height - ((normalizedAVM / 30) * canvas.height);
-                
-                if(i === 0) {
-                    ctx.moveTo(x, y);
-                } else {
-                    ctx.lineTo(x, y);
-                }
+                if(i === 0) ctx.moveTo(x, y);
+                else ctx.lineTo(x, y);
                 x += sliceWidth;
             }
             ctx.stroke();
@@ -224,7 +262,6 @@
             }
         }
 
-        // Dual-Tone Programmatic Piezo Siren
         let sirenInterval = null;
         function startSiren() {
             initAudio();
@@ -258,6 +295,7 @@
         btnScan.addEventListener('click', async () => {
             initAudio();
             setupCanvas();
+            logEvent("Starting BLE Scan discovery...");
             try {
                 connStateSpan.className = "px-4 py-1.5 rounded-full text-xs font-mono font-bold bg-yellow-500/20 text-yellow-400 border border-yellow-500/30";
                 connStateSpan.innerText = "SCANNING DEVICES...";
@@ -268,10 +306,12 @@
                 });
 
                 connStateSpan.innerText = `CONNECTING: ${device.name || "SENSOR"}...`;
+                logEvent(`Connecting to: ${device.name || "Unnamed Wearable"}`);
 
                 const server = await device.gatt.connect();
                 connStateSpan.className = "px-4 py-1.5 rounded-full text-xs font-mono font-bold bg-green-500/20 text-green-400 border border-green-500/30";
                 connStateSpan.innerText = "CONNECTED";
+                logEvent("GATT Server Connection Established successfully! ✅");
 
                 device.addEventListener('gattserverdisconnected', onDisconnected);
 
@@ -290,47 +330,60 @@
                 await avmChar.startNotifications();
                 avmChar.addEventListener('characteristicvaluechanged', (e) => {
                     const val = e.target.value;
-                    const avm = val.getFloat32(0, true); // Float32 Little Endian [cite: 129]
-                    
-                    // Update Numerical UI
+                    const avm = val.getFloat32(0, true);
                     avmValText.innerHTML = `${avm.toFixed(3)} <span class="text-xs text-gray-500">m/s²</span>`;
                     
-                    // Push data to Chart history
+                    triggerHeartbeat();
+
                     avmHistory.push(avm);
-                    if(avmHistory.length > maxPoints) {
-                        avmHistory.shift();
-                    }
+                    if(avmHistory.length > maxPoints) avmHistory.shift();
                     drawChart();
                 });
 
+                // Reset fallback state
+                fff3Supported = false;
+
                 // 🔔 [v13] FFF3 Characteristic Subscription (Active Classifier Class Index)
-                const classChar = await service.getCharacteristic(classCharUuid);
-                await classChar.startNotifications();
-                classChar.addEventListener('characteristicvaluechanged', (e) => {
-                    const classIdx = e.target.value.getUint8(0);
-                    currentWinnerClass = classIdx;
-                    renderTelemetryUI();
-                });
+                try {
+                    const classChar = await service.getCharacteristic(classCharUuid);
+                    await classChar.startNotifications();
+                    classChar.addEventListener('characteristicvaluechanged', (e) => {
+                        const classIdx = e.target.value.getUint8(0);
+                        currentWinnerClass = classIdx;
+                        fff3Supported = true;
+                        renderTelemetryUI();
+                    });
+                    logEvent("Subscribed to 5-Class telemetry characteristic FFF3!");
+                } catch (e) {
+                    logEvent("Warning: FFF3 not found. Falling back to state-based FSM mode.");
+                }
 
                 // 🔔 [v13] FFF4 Characteristic Subscription (Active Classifier Confidence %)
-                const confChar = await service.getCharacteristic(confCharUuid);
-                await confChar.startNotifications();
-                confChar.addEventListener('characteristicvaluechanged', (e) => {
-                    const confVal = e.target.value.getUint8(0);
-                    currentConfidence = confVal;
-                    renderTelemetryUI();
-                });
+                try {
+                    const confChar = await service.getCharacteristic(confCharUuid);
+                    await confChar.startNotifications();
+                    confChar.addEventListener('characteristicvaluechanged', (e) => {
+                        const confVal = e.target.value.getUint8(0);
+                        currentConfidence = confVal;
+                        renderTelemetryUI();
+                    });
+                    logEvent("Subscribed to Confidence telemetry characteristic FFF4!");
+                } catch (e) {
+                    console.log("FFF4 characteristic omitted.");
+                }
 
             } catch (err) {
                 console.error(err);
                 connStateSpan.className = "px-4 py-1.5 rounded-full text-xs font-mono font-bold bg-red-500/20 text-red-400 border border-red-500/30";
-                connStateSpan.innerText = `ERROR: ${err.message}`;
+                connStateSpan.innerText = "ERROR";
+                logEvent(`Error during pairing: ${err.message || err}`);
             }
         });
 
         function onDisconnected() {
             connStateSpan.className = "px-4 py-1.5 rounded-full text-xs font-mono font-bold bg-red-500/20 text-red-400 border border-red-500/30";
             connStateSpan.innerText = "DISCONNECTED";
+            logEvent("BLE Connection lost. Resetting panel state...");
             handleFsmStateChange(0); // Reset UI to Standby
             stopSiren();
             cancelSmsTimer();
@@ -340,78 +393,88 @@
             if (smsTimer) { clearTimeout(smsTimer); smsTimer = null; }
             if (countdownInterval) { clearInterval(countdownInterval); countdownInterval = null; }
             countdownCard.classList.add('hidden');
-            bodyBg.classList.remove('critical-alert-bg');
+            bodyBg.className = "bg-gray-950 text-gray-100 min-h-screen flex flex-col justify-between font-sans transition-all duration-500 selection:bg-blue-500/30";
             countdownVal = 10;
         }
 
         btnCancelSms.addEventListener('click', () => {
-            console.log("User locally bypassed alert state. System returning to standby.");
+            logEvent("User locally dismissed the alert. System restored to standby.");
             cancelSmsTimer();
             handleFsmStateChange(0);
         });
 
-        // 🟢 RIGOROUS FIX: Handles FFF1 FSM States strictly
+        // Handles FFF1 FSM States strictly
         function handleFsmStateChange(fsmState) {
+            // Dual-mode fallback configuration
+            if (!fff3Supported) {
+                if (fsmState === 0) {
+                    currentWinnerClass = 0; // STATIC fallback
+                    currentConfidence = 100;
+                } else if (fsmState === 1) {
+                    currentWinnerClass = 3; // PRE-FALL fallback
+                    currentConfidence = 100;
+                } else if (fsmState === 2) {
+                    currentWinnerClass = 4; // FALL fallback
+                    currentConfidence = 100;
+                }
+                renderTelemetryUI();
+            }
+
             if (fsmState === 0) {
-                // STANDBY STATE (Safe)
                 stopSiren();
                 cancelSmsTimer();
                 isAlertActive = false;
-                bodyBg.className = "bg-gray-950 text-gray-100 min-h-screen flex flex-col justify-between font-sans transition-all duration-500 selection:bg-blue-500/30";
                 renderTelemetryUI();
             } 
             else if (fsmState === 1) {
-                // PRE-FALL STATE
                 cancelSmsTimer();
+                logEvent("Prefall critical signal captured! Pulsing wristband haptics...");
                 if (navigator.vibrate) { navigator.vibrate(200); }
             } 
             else if (fsmState === 2) {
-                // CRITICAL FALL EVENT (Trigger countdown, sirens, haptics)
-                if (isAlertActive) return; // Terminate duplicate triggers
+                if (isAlertActive) return;
                 isAlertActive = true;
 
-                // Local Haptic Alarm and flashing background
                 startSiren();
                 bodyBg.className = "critical-alert-bg text-gray-100 min-h-screen flex flex-col justify-between font-sans transition-all duration-500 selection:bg-blue-500/30";
-                if (navigator.vibrate) { navigator.vibrate([100, 50, 100, 50, 300]); }
+                if (navigator.vibrate) { navigator.vibrate(); }
 
-                // Timestamp Log
                 const fallTime = new Date().toLocaleTimeString();
                 timestampText.innerText = `FALL OCCURRED AT: ${fallTime}`;
                 timestampText.className = "text-xs font-mono font-bold text-red-400";
+                logEvent(`🚨 CRITICAL ACCIDENT: Fall detected by 1D-CNN at ${fallTime}!`);
 
-                // Execute Countdown
                 startSmsVerificationCountdown();
             }
         }
 
-        // 🟢 RIGOROUS FIX: Renders the active 5-class UI telemetry dynamically (driven by FFF3/FFF4)
+        // Renders the active 5-class UI telemetry dynamically (driven by FFF3/FFF4)
         function renderTelemetryUI() {
-            // Obtain dynamic visual attributes
-            const colors = classColors[currentWinnerClass] || classColors[0];
-            const svgPath = classSVGs[currentWinnerClass] || classSVGs[0];
-            const className = classNames[currentWinnerClass] || classNames[0];
+            // Guard fallback structure to prevent "undefined" rendering errors
+            const colors = classColors[currentWinnerClass] !== undefined ? classColors[currentWinnerClass] : classColors[0];
+            const svgPath = classSVGs[currentWinnerClass] !== undefined ? classSVGs[currentWinnerClass] : classSVGs[0];
+            const className = classNames[currentWinnerClass] !== undefined ? classNames[currentWinnerClass] : classNames[0];
 
-            // Render center status ring style
             if (!isAlertActive) {
                 statusRing.className = `w-44 h-44 rounded-full flex flex-col items-center justify-center border-8 ${colors.border} ${colors.bg} ${colors.shadow} transition-all duration-300`;
                 statusIcon.className = `w-16 h-16 ${colors.text}`;
                 statusText.innerText = `SUBJECT IS: ${className}`;
                 statusText.className = `text-base font-bold ${colors.text} mt-3 tracking-wider`;
             } else {
-                // If critical alert is active, keep the RED pulse styling locked in the center
                 statusRing.className = "w-44 h-44 rounded-full flex flex-col items-center justify-center border-8 border-red-600 bg-red-600/10 shadow-[0_0_50px_rgba(220,38,38,0.5)] animate-bounce transition-all duration-300";
                 statusIcon.className = "w-16 h-16 text-red-500";
                 statusText.innerText = "FALL CRASH DETECTED";
                 statusText.className = "text-base font-bold text-red-500 mt-3 tracking-wider";
             }
 
-            // Render dynamic icon inner svg
             statusIcon.innerHTML = svgPath;
 
-            // Render active classifier readout box with dynamic probability percentage
-            modelClassText.innerText = `${className} (${currentConfidence}%)`;
-            modelClassText.className = `text-base font-bold ${colors.text}`;
+            // 🟢 Separated metric rendering as requested!
+            modelClassText.innerText = className; // Only prediction name!
+            modelClassText.className = `text-sm font-bold ${colors.text}`;
+
+            modelConfText.innerText = `${currentConfidence}%`; // New independent confidence box!
+            modelConfText.className = `text-sm font-mono font-bold ${colors.text}`;
         }
 
         function startSmsVerificationCountdown() {
@@ -425,9 +488,9 @@
                 countdownVal--;
                 countdownTimerSpan.innerText = countdownVal;
                 
-                if (navigator.vibrate) { navigator.vibrate(100); } // Continuous pulse warning
+                if (navigator.vibrate) { navigator.vibrate(100); }
+                logEvent(`Countdown ticking: ${countdownVal}s left`);
 
-                // Play warning ticks programmatically
                 if (audioCtx) {
                     let tick = audioCtx.createOscillator();
                     let tickGain = audioCtx.createGain();
@@ -444,30 +507,35 @@
                 }
             }, 1000);
 
-            // Trigger SMS redirection on timeout
+            // Fetch configured contact number dynamically from UI
+            const targetPhone = document.getElementById('phone-input').value.trim() || emergencyContact;
+
             smsTimer = setTimeout(() => {
-                triggerEmergencySms();
+                triggerEmergencySms(targetPhone);
             }, 10000);
         }
 
-        function triggerEmergencySms() {
+        function triggerEmergencySms(phoneNum) {
             countdownCard.classList.add('hidden');
-            bodyBg.classList.remove('critical-alert-bg');
+            bodyBg.className = "bg-gray-950 text-gray-100 min-h-screen flex flex-col justify-between font-sans transition-all duration-500 selection:bg-blue-500/30";
+            
+            logEvent(`Timeout expired! Dispatching emergency geolocation to: ${phoneNum}`);
+
             if (navigator.geolocation) {
                 navigator.geolocation.getCurrentPosition((pos) => {
                     const lat = pos.coords.latitude;
                     const lon = pos.coords.longitude;
                     const mapUrl = `https://www.google.com/maps/search/?api=1&query=${lat},${lon}`;
-                    const msg = `[CRITICAL ALERT] Fall Detected! Subject did not respond. Location: ${mapUrl}`;
+                    const msg = `[CRITICAL ALERT] Fall Detected! Jacky did not respond. Geolocation: ${mapUrl}`;
                     
-                    window.location.href = `sms:${emergencyContact}&body=${encodeURIComponent(msg)}`;
+                    window.location.href = `sms:${phoneNum}&body=${encodeURIComponent(msg)}`;
                 }, (err) => {
-                    const fallbackMsg = `[CRITICAL ALERT] Fall Detected! Subject did not respond. (GPS coordinate fetch failed)`;
-                    window.location.href = `sms:${emergencyContact}&body=${encodeURIComponent(fallbackMsg)}`;
+                    const fallbackMsg = `[CRITICAL ALERT] Fall Detected! Jacky did not respond. (GPS coordinate fetch failed)`;
+                    window.location.href = `sms:${phoneNum}&body=${encodeURIComponent(fallbackMsg)}`;
                 }, { enableHighAccuracy: true });
             } else {
-                const fallbackMsg = `[CRITICAL ALERT] Fall Detected! Subject did not respond.`;
-                window.location.href = `sms:${emergencyContact}&body=${encodeURIComponent(fallbackMsg)}`;
+                const fallbackMsg = `[CRITICAL ALERT] Fall Detected! Jacky did not respond.`;
+                window.location.href = `sms:${phoneNum}&body=${encodeURIComponent(fallbackMsg)}`;
             }
         }
     </script>
