@@ -1,5 +1,5 @@
 # ==========================================
-# Jacky Fall Monitor CI/CD Build Script (Fixed v5)
+# Jacky Fall Monitor CI/CD Build Script (Fixed v6)
 # Designed for Windows 11 + iPhone 16PM Sideloading
 # ==========================================
 workflows:
@@ -20,12 +20,9 @@ workflows:
       - name: 1. 獲取 Flutter 相依庫
         script: |
           flutter pub get
-      - name: 2. 預生成並注入三維一體免簽名設定並編譯
+      - name: 2. 逆轉時序注入免簽名設定並編譯
         script: |
-          # 💡 Step A: 預執行一次編譯（允許其簽名失敗），強迫 Flutter 引擎在本地生成 ios/Podfile 檔案
-          flutter build ios --release --no-codesign || true
-          
-          # 💡 Step B: 寫入臨時 Python 補丁，強制主專案設為 Manual 簽名模式並注入虛擬 Team ID
+          # 💡 Step A: 寫入主專案手動簽名與虛擬 Team ID 補丁
           cat << 'EOF' > patch_xcode.py
           import re
           path = "ios/Runner.xcodeproj/project.pbxproj"
@@ -40,7 +37,7 @@ workflows:
           print("Successfully patched project.pbxproj with manual signing and dummy DEVELOPMENT_TEAM!")
           EOF
 
-          # 💡 Step C: 寫入臨時 Python 補丁，強制 CocoaPods 所有第三方插件目標也禁用簽名
+          # 💡 Step B: 寫入 CocoaPods 插件禁用簽名補丁
           cat << 'EOF' > patch_podfile.py
           import os
           path = "ios/Podfile"
@@ -61,21 +58,26 @@ workflows:
               print("Warning: Podfile not found")
           EOF
 
-          # 💡 Step D: 執行 Python 雙重補丁（這一次 Podfile 絕對存在，補丁 100% 注入成功！）
+          # 💡 Step C: 【關鍵逆轉】先執行主專案 Xcode 補丁，騙過 Flutter 預檢！
           python3 patch_xcode.py
+
+          # 💡 Step D: 執行第一次預編譯（此時預檢 100% 通過，成功在本地逼出 ios/Podfile 檔案！）
+          flutter build ios --release --no-codesign || true
+
+          # 💡 Step E: 【關鍵補完】此時 Podfile 已安全誕生，立刻執行 Podfile 補丁！
           python3 patch_podfile.py
 
-          # 💡 Step E: 向 Release.xcconfig 注入最高優先級的禁用簽名指令
+          # 💡 Step F: 向 Release.xcconfig 注入最高優先級的禁用簽名指令
           echo "CODE_SIGNING_ALLOWED=NO" >> ios/Flutter/Release.xcconfig
           echo "CODE_SIGNING_REQUIRED=NO" >> ios/Flutter/Release.xcconfig
           echo "CODE_SIGN_IDENTITY=" >> ios/Flutter/Release.xcconfig
           
-          # 💡 Step F: 強制 CocoaPods 重新加載我們修改後的 Podfile，並重構 Pods.xcodeproj
+          # 💡 Step G: 強制 CocoaPods 重新拉取我們注入完畢的 Podfile，重構 Pods.xcodeproj 專案檔
           cd ios
           pod install
           cd ..
           
-          # 💡 Step G: 執行最終的實體 iOS 編譯（主專案與插件全部免簽，暢行無阻！）
+          # 💡 Step H: 執行最終的實體 iOS 編譯（主專案與插件全部完美免簽，暢行無阻！）
           flutter build ios --release --no-codesign
       - name: 3. 封裝為 Sideloadly 相容的實體 .ipa 檔案
         script: |
