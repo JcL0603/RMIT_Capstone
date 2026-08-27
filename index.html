@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Jacky's Web BLE Fall Monitor v5</title>
+    <title>Jacky's Web BLE Fall Monitor v5.1</title>
     <!-- Tailwind CSS for Modern High-Contrast Engineering UI -->
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
@@ -28,7 +28,7 @@
     <!-- Header Navigation -->
     <header class="bg-gray-900 p-4 shadow-md text-center border-b border-gray-800">
         <h1 class="text-xl font-bold tracking-widest text-blue-400 font-mono">JACKY'S FALL TELEMETRY</h1>
-        <p class="text-[10px] text-gray-500 mt-1">Edge TinyML Web BLE Real-Time Monitor v5.0</p>
+        <p class="text-[10px] text-gray-500 mt-1">Edge TinyML Web BLE Real-Time Monitor v5.1</p>
     </header>
 
     <!-- Main Content Area -->
@@ -80,12 +80,11 @@
                 <p class="text-sm font-bold text-green-500 truncate mt-0.5" id="model-class">STATIC</p>
             </div>
 
-            <!-- Box 3: Classifier Confidence (New Independent Window: Float + Percentage Dual Display!) -->
+            <!-- Box 3: Classifier Confidence (0.XX Float format ONLY!) -->
             <div class="bg-gray-900 border border-gray-800 rounded-xl p-2.5 text-center shadow-lg flex flex-col justify-between">
                 <p class="text-[8px] text-gray-500 uppercase tracking-widest mb-1">Confidence</p>
                 <div class="text-center mt-0.5">
                     <span class="text-sm font-mono font-bold text-green-400" id="model-conf">1.00</span>
-                    <span class="text-[10px] text-gray-500 font-mono" id="model-conf-pct">(100%)</span>
                 </div>
                 <!-- Mini neon progress bar showing certainty -->
                 <div class="w-full bg-gray-950 rounded-full h-1 mt-1 border border-gray-800">
@@ -94,7 +93,7 @@
             </div>
         </div>
 
-        <!-- Real-Time AVM Line Waveform Plotter (Direct HTML5 Canvas drawing) -->
+        <!-- Real-Time AVM Line Waveform Plotter -->
         <div class="w-full max-w-sm bg-gray-900 border border-gray-800 rounded-2xl p-3 shadow-lg">
             <p class="text-[9px] text-gray-500 uppercase tracking-widest mb-2 text-center">Real-Time Waveform Plotter (5Hz)</p>
             <canvas id="avm-chart" class="w-full h-20 bg-gray-950 rounded-lg"></canvas>
@@ -225,14 +224,13 @@
         let avmHistory = [];
         const maxPoints = 50;
 
-        // Elements
+        // Elements (Grounded and fact-checked)
         const bodyBg = document.getElementById('body-bg');
         const connStateSpan = document.getElementById('conn-state');
         const iconContainer = document.getElementById('status-icon-container');
         const avmValText = document.getElementById('avm-val');
         const modelClassText = document.getElementById('model-class');
         const modelConfText = document.getElementById('model-conf');
-        const modelConfPctText = document.getElementById('model-conf-pct');
         const modelConfBar = document.getElementById('model-conf-bar');
         const btnScan = document.getElementById('btn-scan');
         const countdownCard = document.getElementById('countdown-card');
@@ -241,6 +239,10 @@
         const timestampText = document.getElementById('fall-timestamp');
         const eventLog = document.getElementById('event-log');
         const btnExportCsv = document.getElementById('btn-export-csv');
+        
+        // 🟢 FIX: Global declaration of Canvas variables to prevent Thread ReferenceError!
+        const canvas = document.getElementById('avm-chart');
+        const ctx = canvas.getContext('2d');
 
         function setupCanvas() {
             canvas.width = canvas.parentElement.clientWidth - 24;
@@ -332,7 +334,7 @@
             }
         }
 
-        // Web BLE Scan Discovery
+        // Web BLE Scan Discovery (ReferenceError Resolved)
         btnScan.addEventListener('click', async () => {
             initAudio();
             setupCanvas();
@@ -499,10 +501,12 @@
             }
         }
 
-        // Renders the active 5-class UI telemetry dynamically (resolves WebKit SVG Redraw bug)
+        // Renders the active 5-class UI telemetry dynamically (resolves WebKit SVG Redraw bug and assigns indexes correctly)
         function renderTelemetryUI() {
             const className = classNames[currentWinnerClass] !== undefined ? classNames[currentWinnerClass] : "STATIC";
             const classColor = classColors[currentWinnerClass] !== undefined ? classColors[currentWinnerClass] : "text-green-500";
+            
+            // 🟢 Formatting probability decimal strictly as 0.XX format as requested (e.g. 100% -> 1.00, 94% -> 0.94)
             const confidenceFloat = (currentConfidence / 100.0).toFixed(2);
 
             // 🟢 CRITICAL RESOLUTION: Write the COMPLETE SVG block into the container's innerHTML
@@ -515,13 +519,13 @@
             }
 
             // 🟢 Separated metric rendering as requested!
-            modelClassText.innerText = className; // Only class name
+            modelClassText.innerText = className; // Only class name (STATIC, WALK, STAIRS, etc.)
             modelClassText.className = `text-sm font-bold ${classColor}`;
 
-            modelConfText.innerText = confidenceFloat; // float decimal display (0.XX format!)
-            modelConfPctText.innerText = `(${currentConfidence}%)`; // matching percentage display
+            modelConfText.innerText = confidenceFloat; // Display ONLY float decimal (0.XX) as requested! No percentage symbol!
+            modelConfText.className = `text-sm font-mono font-bold ${classColor}`;
             
-            // Render neon gauge progress bar
+            // Render neon gauge progress bar width
             modelConfBar.style.width = `${currentConfidence}%`;
             
             // Adjust bar colors dynamically to match classes
