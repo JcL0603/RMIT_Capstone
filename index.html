@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Jacky's Web BLE Fall Monitor v5.3</title>
+    <title>Jacky's Web BLE Fall Monitor v5.4</title>
     <!-- Tailwind CSS for Modern High-Contrast Engineering UI -->
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
@@ -28,7 +28,7 @@
     <!-- Header Navigation -->
     <header class="bg-gray-900 p-4 shadow-md text-center border-b border-gray-800">
         <h1 class="text-xl font-bold tracking-widest text-blue-400 font-mono">JACKY'S FALL TELEMETRY</h1>
-        <p class="text-[10px] text-gray-500 mt-1">Edge TinyML Web BLE Real-Time Monitor v5.3</p>
+        <p class="text-[10px] text-gray-500 mt-1">Edge TinyML Web BLE Real-Time Monitor v5.4</p>
     </header>
 
     <!-- Main Content Area -->
@@ -98,7 +98,7 @@
             <canvas id="avm-chart" class="w-full h-20 bg-gray-950 rounded-lg"></canvas>
         </div>
 
-        <!-- 10-Second Crisis Countdown Card (Default Hidden) -->
+        <!-- 10-Second Crisis Countdown Card -->
         <div id="countdown-card" class="hidden w-full max-w-sm bg-red-950/30 border-2 border-red-500/50 rounded-2xl p-4 text-center space-y-3 animate-pulse-red">
             <h3 class="text-red-500 font-bold text-xs tracking-wider">🚨 CRISIS VERIFICATION COUNTDOWN 🚨</h3>
             <p class="text-xs text-gray-300">
@@ -215,7 +215,7 @@
                 </div>`,
             3: `<div id="status-ring" class="w-40 h-40 rounded-full flex flex-col items-center justify-center border-8 border-yellow-500 bg-yellow-500/10 shadow-[0_0_40px_rgba(245,158,11,0.25)] transition-all duration-300">
                     <svg class="w-16 h-16 text-yellow-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667(1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path>
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path>
                     </svg>
                     <span class="text-xs font-bold text-yellow-500 mt-2 tracking-widest font-mono">PRE-FALL</span>
                 </div>`,
@@ -413,7 +413,7 @@
                         latest_gy = val.getFloat32(16, true);
                         latest_gz = val.getFloat32(20, true);
 
-                        // 🟢 LOG EVENT ONLY ONCE: Proves FFF5 link is active!
+                        // LOG EVENT ONLY ONCE: Proves FFF5 link is active!
                         if (firstImuPacket) {
                             firstImuPacket = false;
                             logEvent("Successfully receiving raw 6-axis data on FFF5! ✅");
@@ -439,7 +439,7 @@
                     if(avmHistory.length > maxPoints) avmHistory.shift();
                     drawChart();
 
-                    // 🟢 ALIGNED 5Hz SNAPSHOT LOGGING: Packs Timestamp, raw 6-axis IMU, AVM, and AI states
+                    // ALIGNED 5Hz SNAPSHOT LOGGING: Packs Timestamp, raw 6-axis IMU, AVM, and AI states
                     const activeStateName = classNames[currentWinnerClass] || "STATIC";
                     sessionLogs.push({
                         time: new Date().toLocaleTimeString(),
@@ -563,17 +563,18 @@
             }
         }
 
-        // Renders the active 5-class UI telemetry dynamically
+        // Renders the active 5-class UI telemetry dynamically (Resolves [object Object] rendering bug ✅)
         function renderTelemetryUI() {
             const className = classNames[currentWinnerClass] !== undefined ? classNames[currentWinnerClass] : "STATIC";
             const classColor = classColors[currentWinnerClass] !== undefined ? classColors[currentWinnerClass] : "text-green-500";
             const confidenceFloat = (currentConfidence / 100.0).toFixed(2);
 
-            // Write the COMPLETE SVG block to bypass Safari/WebKit GPU Redraw Bug!
+            // 🟢 CRITICAL BUGFIX: Ensure we ONLY write a specific string to innerHTML, never the parent object!
             if (!isAlertActive) {
-                iconContainer.innerHTML = classSVGs[currentWinnerClass] !== undefined ? classSVGs[currentWinnerClass] : classSVGs;
+                iconContainer.innerHTML = classSVGs[currentWinnerClass] !== undefined ? classSVGs[currentWinnerClass] : classSVGs[0];
             } else {
-                iconContainer.innerHTML = classSVGs; // Lock to Critical Fall Heartbeat SVG
+                // If fall alert is active, force render the bouncing Critical Fall Heartbeat (Index 4 is Fall Crash)
+                iconContainer.innerHTML = classSVGs[4]; 
             }
 
             // Separated metric rendering
