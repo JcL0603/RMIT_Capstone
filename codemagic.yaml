@@ -1,0 +1,46 @@
+# ==========================================
+# Jacky Fall Monitor CI/CD Build Script
+# Designed for Windows 11 + iPhone 16PM Sideloading
+# ==========================================
+workflows:
+  ios-unsigned-build:
+    name: Jacky Fall Monitor - iOS Unsigned Build
+    max_build_duration: 30
+    instance_type: macos_m1_standard # 使用免費額度最穩定的 M1 Mac 虛擬機
+    environment:
+      flutter: stable # 自動加載最新穩定的 Flutter SDK
+      xcode: latest   # 自動加載最新 Xcode 編譯環境
+    triggering:
+      events:
+        - push
+      branches:
+        - main
+    scripts:
+      - name: 1. 獲取 Flutter 相依庫
+        script: |
+          flutter pub get
+      - name: 2. 執行免簽名實體 iOS 編譯
+        script: |
+          # 💡 編譯出專門運行在 iPhone 實體機上的 Release 版，但跳過蘋果官方證書檢驗
+          flutter build ios --release --no-codesign
+      - name: 3. 封裝為 Sideloadly 相容的實體 .ipa 檔案
+        script: |
+          # 💡 這是在 Windows 下繞過 Mac 證書的關鍵！我們手動創建標準 iOS 安裝包結構
+          mkdir -p build/ios/ipa/Payload
+          cp -r build/ios/iphoneos/Runner.app build/ios/ipa/Payload
+          cd build/ios/ipa
+          zip -r jacky_fall_monitor.ipa Payload
+    artifacts:
+      - build/ios/ipa/*.ipa # 📥 告訴 Codemagic：編譯成功後，把這個 .ipa 檔案提供給 Jacky 下載！
+儲存該檔案（按 Ctrl + S）。
+🚀 第二步：將編譯劇本推送到 GitHub 雲端
+有了這份劇本，我們需要用 Git 把它送上雲端，讓 Codemagic 能夠讀取到它。
+請在 VS Code 的**終端機（Terminal）**中，逐行複製並執行以下三行指令：
+# 1. 將新建立的 codemagic.yaml 加入暫存區
+git add codemagic.yaml
+
+# 2. 提交變更，寫上 CI 註記
+git commit -m "ci: add codemagic configuration for unsigned ios build"
+
+# 3. 推送到 GitHub 倉庫
+git push
