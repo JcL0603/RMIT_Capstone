@@ -1,103 +1,109 @@
 <!DOCTYPE html>
-<html lang="zh-TW">
+<html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Jacky's Web BLE Fall Monitor v3</title>
-    <!-- 引入 Tailwind CSS 實現現代化高對比 UI -->
+    <title>Jacky's Web BLE Fall Monitor v4</title>
+    <!-- Tailwind CSS for Modern High-Contrast Engineering UI -->
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         @keyframes pulse-red {
             0%, 100% { transform: scale(1); box-shadow: 0 0 20px rgba(239, 68, 68, 0.4); }
-            50% { transform: scale(1.05); box-shadow: 0 0 40px rgba(239, 68, 68, 0.8); }
+            50% { transform: scale(1.05); box-shadow: 0 0 40px rgba(239, 68, 68, 0.9); }
         }
         .animate-pulse-red {
-            animation: pulse-red 1.5s infinite;
+            animation: pulse-red 1.2s infinite;
         }
     </style>
 </head>
-<body class="bg-gray-950 text-white min-h-screen flex flex-col justify-between font-sans selection:bg-blue-500/30">
+<body class="bg-gray-950 text-gray-100 min-h-screen flex flex-col justify-between font-sans selection:bg-blue-500/30">
 
-    <!-- 頂部導航列 -->
+    <!-- Header Navigation -->
     <header class="bg-gray-900 p-4 shadow-md text-center border-b border-gray-800">
-        <h1 class="text-xl font-bold tracking-wider text-blue-400">JACKY FALL MONITOR</h1>
-        <p class="text-xs text-gray-400 mt-1">Web Bluetooth (BLE) 實時監護系統 v3.0</p>
+        <h1 class="text-xl font-bold tracking-widest text-blue-400">JACKY'S FALL TELEMETRY</h1>
+        <p class="text-[10px] text-gray-500 mt-1">Edge TinyML Web BLE Real-Time Monitor v4.0</p>
     </header>
 
-    <!-- 主顯示區域 -->
-    <main class="flex-grow flex flex-col items-center justify-center p-6 space-y-6">
+    <!-- Main Content Area -->
+    <main class="flex-grow flex flex-col items-center justify-center p-4 space-y-6">
         
-        <!-- 藍牙連線與通知授權狀態 -->
-        <div class="flex flex-col items-center space-y-2">
-            <span id="conn-state" class="px-4 py-1.5 rounded-full text-xs font-semibold bg-red-500/20 text-red-400 border border-red-500/30">
-                未連線
+        <!-- Connection Status -->
+        <div class="text-center">
+            <span id="conn-state" class="px-4 py-1.5 rounded-full text-xs font-mono font-bold bg-red-500/20 text-red-400 border border-red-500/30">
+                DISCONNECTED
             </span>
-            <button id="btn-notification" class="text-[10px] text-gray-500 hover:text-gray-300 underline">
-                點此啟用：手持鎖屏「緊急通知橫幅」
+        </div>
+
+        <!-- 5-Class SVG Icon Display -->
+        <div id="status-icon-container" class="flex items-center justify-center">
+            <!-- Dynamic State Icon (Shield icon as default Static) -->
+            <div id="status-ring" class="w-44 h-44 rounded-full flex flex-col items-center justify-center border-8 border-green-500 bg-green-500/10 shadow-[0_0_40px_rgba(16,185,129,0.25)] transition-all duration-300">
+                <svg id="status-icon" class="w-16 h-16 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"></path>
+                </svg>
+            </div>
+        </div>
+
+        <!-- Live Metrics Section -->
+        <div class="grid grid-cols-2 gap-4 w-full max-w-sm">
+            <!-- AVM Numerical Readout -->
+            <div class="bg-gray-900 border border-gray-800 rounded-2xl px-4 py-3 text-center shadow-lg">
+                <p class="text-[9px] text-gray-500 uppercase tracking-widest mb-1">Signal Vector (AVM)</p>
+                <p class="text-lg font-mono font-bold text-blue-400" id="avm-val">0.000 <span class="text-xs text-gray-500">m/s²</span></p>
+            </div>
+            
+            <!-- TinyML Active Prediction Class -->
+            <div class="bg-gray-900 border border-gray-800 rounded-2xl px-4 py-3 text-center shadow-lg">
+                <p class="text-[9px] text-gray-500 uppercase tracking-widest mb-1">Active Classifier</p>
+                <p class="text-base font-bold text-green-500 truncate" id="model-class">STATIC</p>
+            </div>
+        </div>
+
+        <!-- Real-Time AVM Line Waveform Plotter -->
+        <div class="w-full max-w-sm bg-gray-900 border border-gray-800 rounded-2xl p-3 shadow-lg">
+            <p class="text-[9px] text-gray-500 uppercase tracking-widest mb-2 text-center">Real-Time Waveform Plotter (5Hz)</p>
+            <canvas id="avm-chart" class="w-full h-24 bg-gray-950 rounded-lg"></canvas>
+        </div>
+
+        <!-- 10-Second Crisis Countdown Card (Default Hidden) -->
+        <div id="countdown-card" class="hidden w-full max-w-sm bg-red-950/30 border-2 border-red-500/50 rounded-2xl p-4 text-center space-y-3 animate-pulse-red">
+            <h3 class="text-red-500 font-bold text-xs tracking-wider">🚨 CRISIS VERIFICATION COUNTDOWN 🚨</h3>
+            <p class="text-xs text-gray-300">
+                Severe Fall Detected! SMS dispatch in <span id="countdown-timer" class="text-lg font-mono font-bold text-red-500">10</span> seconds.<br>
+                Press the physical wristband button or click below to cancel.
+            </p>
+            <button id="btn-cancel-sms" class="bg-gray-800 hover:bg-gray-700 text-white text-xs font-bold px-4 py-2 rounded-lg transition-all border border-gray-700">
+                DISMISS ALERT (FALSE ALARM)
             </button>
         </div>
 
-        <!-- 醫療監護大圓盤 -->
-        <div id="status-ring" class="w-60 h-60 rounded-full flex flex-col items-center justify-center border-8 border-green-500 bg-green-500/10 shadow-[0_0_50px_rgba(16,185,129,0.3)] transition-all duration-300">
-            <svg id="status-icon" class="w-20 h-20 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"></path>
-            </svg>
-            <span id="status-text" class="text-base font-bold text-green-500 mt-3 tracking-wide">系統安全監護中</span>
+        <!-- Fall History & Logging -->
+        <div id="history-card" class="w-full max-w-sm bg-gray-900 border border-gray-800 rounded-2xl p-3 shadow-lg text-center">
+            <p class="text-[9px] text-gray-500 uppercase tracking-widest mb-1">Emergency Timestamp Log</p>
+            <p id="fall-timestamp" class="text-xs font-mono text-gray-400">No anomalous events recorded</p>
         </div>
 
-        <!-- 當前 Model 預測狀態欄與 AVM 數據 (對齊你的需求：並排高對比呈現) -->
-        <div class="grid grid-cols-2 gap-4 w-full max-w-sm">
-            <!-- AVM 數據顯示框 -->
-            <div class="bg-gray-900 border border-gray-800 rounded-2xl px-4 py-3 text-center shadow-lg">
-                <p class="text-[10px] text-gray-500 uppercase tracking-widest mb-1">運動指標 (AVM)</p>
-                <p class="text-xl font-mono font-bold text-blue-400" id="avm-val">0.000 <span class="text-xs text-gray-500">m/s²</span></p>
-            </div>
-            
-            <!-- 🌟 新增：Model 預測狀態欄 -->
-            <div class="bg-gray-900 border border-gray-800 rounded-2xl px-4 py-3 text-center shadow-lg">
-                <p class="text-[10px] text-gray-500 uppercase tracking-widest mb-1">當前預測狀態</p>
-                <p class="text-lg font-bold text-green-500" id="model-class">STATIC (靜止)</p>
-            </div>
-        </div>
-
-        <!-- ⚠️ 10 秒倒數計時確認視窗 (預設隱藏，只有 Fall 時自動展開) -->
-        <div id="countdown-card" class="hidden w-full max-w-sm bg-red-950/40 border-2 border-red-500/50 rounded-2xl p-4 text-center space-y-3 animate-pulse-red">
-            <h3 class="text-red-400 font-bold text-sm tracking-widest flex items-center justify-center space-x-1">
-                <span>⚠️ 嚴重跌倒二次確認中 ⚠️</span>
-            </h3>
-            <p class="text-xs text-gray-300">
-                系統檢測到猛烈撞擊！倒數計時 <span id="countdown-timer" class="text-xl font-mono font-bold text-red-500">10</span> 秒。<br>
-                請在 10 秒內按下手環按鈕，或點擊下方按鈕解除。
-            </p>
-            <div class="flex justify-center space-x-3">
-                <!-- 手機端手動取消誤報按鈕 -->
-                <button id="btn-cancel-sms" class="bg-gray-800 hover:bg-gray-700 text-white text-xs font-bold px-4 py-2 rounded-lg transition-all border border-gray-700">
-                    解除警報 (我沒事)
-                </button>
-            </div>
-        </div>
-
-        <!-- 搜尋按鈕 -->
-        <button id="btn-scan" class="bg-blue-600 hover:bg-blue-500 active:bg-blue-700 text-white text-sm font-bold px-8 py-3.5 rounded-full shadow-lg hover:shadow-blue-500/30 transition-all flex items-center space-x-2">
-            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <!-- Control Action Button -->
+        <button id="btn-scan" class="bg-blue-600 hover:bg-blue-500 active:bg-blue-700 text-white text-xs font-bold px-8 py-3 rounded-full shadow-lg hover:shadow-blue-500/30 transition-all flex items-center space-x-2">
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
             </svg>
-            <span>手動搜尋手環</span>
+            <span>DISCOVER WEARABLE SENSOR</span>
         </button>
     </main>
 
-    <!-- 底部版權 -->
-    <footer class="text-center p-4 text-[10px] text-gray-600 bg-gray-950 border-t border-gray-900">
-        Jacky Lin | RMIT Capstone Project 2026
+    <!-- Footer -->
+    <footer class="text-center p-3 text-[9px] text-gray-600 bg-gray-950 border-t border-gray-900 font-mono">
+        Jacky LIN | RMIT Capstone Project 2026
     </footer>
 
-    <!-- Web BLE 核心控制邏輯 -->
+    <!-- Web BLE Core Controller -->
     <script>
         const serviceUuid = "0000fff0-0000-1000-8000-00805f9b34fb"; // FFF0
-        const stateCharUuid = "0000fff1-0000-1000-8000-00805f9b34fb"; // FFF1 (0: Standby, 1: Prefall, 2: Fall)
+        const stateCharUuid = "0000fff1-0000-1000-8000-00805f9b34fb"; // FFF1 (0:STATIC, 1:WALK, 2:STAIRS, 3:PRE-FALL, 4:FALL)
         const avmCharUuid = "0000fff2-0000-1000-8000-00805f9b34fb"; // FFF2 (AVM Float)
 
-        // 🟢 收件人設定：Jacky LIN 的專屬號碼
+        // 🟢 Default Recipient Configured (Jacky's Target)
         const emergencyContact = "+85267347740";
 
         let device = null;
@@ -105,8 +111,15 @@
         let smsTimer = null;
         let countdownVal = 10;
         let countdownInterval = null;
-        let isSystemAlertActive = false;
+        let isAlertActive = false;
 
+        // AVM Chart Variables
+        const canvas = document.getElementById('avm-chart');
+        const ctx = canvas.getContext('2d');
+        let avmHistory = [];
+        const maxPoints = 50;
+
+        // Elements
         const connStateSpan = document.getElementById('conn-state');
         const statusRing = document.getElementById('status-ring');
         const statusIcon = document.getElementById('status-icon');
@@ -114,19 +127,66 @@
         const avmValText = document.getElementById('avm-val');
         const modelClassText = document.getElementById('model-class');
         const btnScan = document.getElementById('btn-scan');
-        const btnNotification = document.getElementById('btn-notification');
         const countdownCard = document.getElementById('countdown-card');
         const countdownTimerSpan = document.getElementById('countdown-timer');
         const btnCancelSms = document.getElementById('btn-cancel-sms');
+        const timestampText = document.getElementById('fall-timestamp');
 
-        // 音訊上下文初始化
+        // Setup Canvas Resolution dynamically
+        function setupCanvas() {
+            canvas.width = canvas.parentElement.clientWidth - 24;
+            canvas.height = 96;
+            drawChart();
+        }
+        window.addEventListener('resize', setupCanvas);
+
+        // Hardware-Accelerated Line Plotter
+        function drawChart() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            // Draw gridlines
+            ctx.strokeStyle = '#1e293b';
+            ctx.lineWidth = 1;
+            for(let i = 1; i < 4; i++) {
+                let y = (canvas.height / 4) * i;
+                ctx.beginPath();
+                ctx.moveTo(0, y);
+                ctx.lineTo(canvas.width, y);
+                ctx.stroke();
+            }
+
+            if(avmHistory.length === 0) return;
+
+            // Draw line wave
+            ctx.strokeStyle = '#38bdf8';
+            ctx.lineWidth = 2.5;
+            ctx.beginPath();
+
+            const sliceWidth = canvas.width / (maxPoints - 1);
+            let x = 0;
+
+            for(let i = 0; i < avmHistory.length; i++) {
+                // Map AVM values (0 to 30) to canvas height (inverted coords)
+                const normalizedAVM = avmHistory[i];
+                const y = canvas.height - ((normalizedAVM / 30) * canvas.height);
+                
+                if(i === 0) {
+                    ctx.moveTo(x, y);
+                } else {
+                    ctx.lineTo(x, y);
+                }
+                x += sliceWidth;
+            }
+            ctx.stroke();
+        }
+
         function initAudio() {
             if (!audioCtx) {
                 audioCtx = new (window.AudioContext || window.webkitAudioContext)();
             }
         }
 
-        // 系統警報聲合成器 (高分貝雙音警笛)
+        // Dual-Tone Programmatic Piezo Siren
         let sirenInterval = null;
         function startSiren() {
             initAudio();
@@ -138,16 +198,16 @@
                 gain.connect(audioCtx.destination);
                 osc.type = 'sawtooth';
                 
-                // 救護車雙音交替警笛
                 const now = audioCtx.currentTime;
-                osc.frequency.setValueAtTime(850, now);
-                osc.frequency.linearRampToValueAtTime(1100, now + 0.35);
+                // Dual frequency sweep representing clinical priority warning
+                osc.frequency.setValueAtTime(900, now);
+                osc.frequency.linearRampToValueAtTime(1300, now + 0.3);
                 gain.gain.setValueAtTime(0.4, now);
-                gain.gain.linearRampToValueAtTime(0.01, now + 0.35);
+                gain.gain.linearRampToValueAtTime(0.01, now + 0.3);
                 
                 osc.start();
-                osc.stop(now + 0.4);
-            }, 450);
+                osc.stop(now + 0.35);
+            }, 400);
         }
 
         function stopSiren() {
@@ -157,54 +217,30 @@
             }
         }
 
-        // 請求 iOS 橫幅通知權限
-        btnNotification.addEventListener('click', () => {
-            if ("Notification" in window) {
-                Notification.requestPermission().then(permission => {
-                    if (permission === "granted") {
-                        btnNotification.innerText = "通知橫幅權限：已開啟 ✅";
-                        new Notification("安全防禦啟動", { body: "手環跌倒時，將在此彈出緊急橫幅警報。" });
-                    } else {
-                        btnNotification.innerText = "通知橫幅權限：被拒絕 ❌";
-                    }
-                });
-            } else {
-                btnNotification.innerText = "此瀏覽器不支援通知 API";
-            }
-        });
-
-        // 觸發本地橫幅通知
-        function sendLocalNotification(title, body) {
-            if ("Notification" in window && Notification.permission === "granted") {
-                new Notification(title, {
-                    body: body
-                });
-            }
-        }
-
-        // 搜尋並連接手環
+        // Web BLE Scan Discovery
         btnScan.addEventListener('click', async () => {
-            initAudio(); // 解鎖 iOS 音訊播放限制
+            initAudio();
+            setupCanvas();
             try {
-                connStateSpan.className = "px-4 py-1.5 rounded-full text-xs font-semibold bg-yellow-500/20 text-yellow-400 border border-yellow-500/30";
-                connStateSpan.innerText = "正在開啟藍牙掃描清單...";
+                connStateSpan.className = "px-4 py-1.5 rounded-full text-xs font-mono font-bold bg-yellow-500/20 text-yellow-400 border border-yellow-500/30";
+                connStateSpan.innerText = "SCANNING DEVICES...";
 
                 device = await navigator.bluetooth.requestDevice({
                     acceptAllDevices: true,
                     optionalServices: [serviceUuid]
                 });
 
-                connStateSpan.innerText = `正在連接至: ${device.name || "未命名手環"}...`;
+                connStateSpan.innerText = `CONNECTING: ${device.name || "SENSOR"}...`;
 
                 const server = await device.gatt.connect();
-                connStateSpan.className = "px-4 py-1.5 rounded-full text-xs font-semibold bg-green-500/20 text-green-400 border border-green-500/30";
-                connStateSpan.innerText = "手環連線成功 ✅";
+                connStateSpan.className = "px-4 py-1.5 rounded-full text-xs font-mono font-bold bg-green-500/20 text-green-400 border border-green-500/30";
+                connStateSpan.innerText = "CONNECTED";
 
                 device.addEventListener('gattserverdisconnected', onDisconnected);
 
                 const service = await server.getPrimaryService(serviceUuid);
 
-                // 訂閱 FFF1 (跌倒狀態)
+                // Subscribe Characteristic FFF1 (State Machine)
                 const stateChar = await service.getCharacteristic(stateCharUuid);
                 await stateChar.startNotifications();
                 stateChar.addEventListener('characteristicvaluechanged', (e) => {
@@ -212,31 +248,39 @@
                     updateSystemState(val);
                 });
 
-                // 訂閱 FFF2 (實時 AVM)
+                // Subscribe Characteristic FFF2 (AVM Waveform telemetry)
                 const avmChar = await service.getCharacteristic(avmCharUuid);
                 await avmChar.startNotifications();
                 avmChar.addEventListener('characteristicvaluechanged', (e) => {
                     const val = e.target.value;
-                    const avm = val.getFloat32(0, true); // Little Endian
-                    avmValText.innerHTML = `${avm.toFixed(3)} <span class="text-sm text-gray-500">m/s²</span>`;
+                    const avm = val.getFloat32(0, true); // Float32 Little Endian [cite: 129]
+                    
+                    // Update Numerical UI
+                    avmValText.innerHTML = `${avm.toFixed(3)} <span class="text-xs text-gray-500">m/s²</span>`;
+                    
+                    // Push data to Chart history
+                    avmHistory.push(avm);
+                    if(avmHistory.length > maxPoints) {
+                        avmHistory.shift();
+                    }
+                    drawChart();
                 });
 
             } catch (err) {
                 console.error(err);
-                connStateSpan.className = "px-4 py-1.5 rounded-full text-xs font-semibold bg-red-500/20 text-red-400 border border-red-500/30";
-                connStateSpan.innerText = `連線失敗: ${err.message}`;
+                connStateSpan.className = "px-4 py-1.5 rounded-full text-xs font-mono font-bold bg-red-500/20 text-red-400 border border-red-500/30";
+                connStateSpan.innerText = `ERROR: ${err.message}`;
             }
         });
 
         function onDisconnected() {
-            connStateSpan.className = "px-4 py-1.5 rounded-full text-xs font-semibold bg-red-500/20 text-red-400 border border-red-500/30";
-            connStateSpan.innerText = "連線中斷 ❌";
+            connStateSpan.className = "px-4 py-1.5 rounded-full text-xs font-mono font-bold bg-red-500/20 text-red-400 border border-red-500/30";
+            connStateSpan.innerText = "DISCONNECTED";
             updateSystemState(0);
             stopSiren();
             cancelSmsTimer();
         }
 
-        // 取消 SMS 定時器與倒數計時
         function cancelSmsTimer() {
             if (smsTimer) { clearTimeout(smsTimer); smsTimer = null; }
             if (countdownInterval) { clearInterval(countdownInterval); countdownInterval = null; }
@@ -244,96 +288,120 @@
             countdownVal = 10;
         }
 
-        // 點擊「我沒事」手動取消警報
         btnCancelSms.addEventListener('click', () => {
-            resetToStandbyLocally();
-        });
-
-        function resetToStandbyLocally() {
-            console.log("用戶手動取消警報，系統重設為 Standby");
+            console.log("User locally bypassed alert state. System returning to standby.");
             cancelSmsTimer();
             updateSystemState(0);
-        }
+        });
 
-        // 系統狀態控制與物理反應
+        // 5-Class FSM Logic with corresponding SVG Icons
         function updateSystemState(state) {
             if (state === 0) {
-                // STATIC / STANDBY 正常狀態 (綠色)
-                statusRing.className = "w-60 h-60 rounded-full flex flex-col items-center justify-center border-8 border-green-500 bg-green-500/10 shadow-[0_0_50px_rgba(16,185,129,0.3)] transition-all duration-300";
+                // 1. STATIC STATE (Green Safeguard)
+                statusRing.className = "w-44 h-44 rounded-full flex flex-col items-center justify-center border-8 border-green-500 bg-green-500/10 shadow-[0_0_40px_rgba(16,185,129,0.25)] transition-all duration-300";
                 statusIcon.innerHTML = `<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"></path>`;
-                statusIcon.className = "w-20 h-20 text-green-500";
-                statusText.innerText = "系統安全監護中";
-                statusText.className = "text-base font-bold text-green-500 mt-3 tracking-wide";
+                statusIcon.className = "w-16 h-16 text-green-500";
+                statusText.innerText = "SYSTEM ACTIVE";
+                statusText.className = "text-base font-bold text-green-500 mt-3 tracking-wider";
                 
-                modelClassText.innerText = "STATIC (靜止/步態)";
-                modelClassText.className = "text-lg font-bold text-green-500";
+                modelClassText.innerText = "STATIC";
+                modelClassText.className = "text-base font-bold text-green-500";
                 
                 stopSiren();
                 cancelSmsTimer();
-                isSystemAlertActive = false;
+                isAlertActive = false;
             } 
             else if (state === 1) {
-                // PREFALL 預警狀態 (黃色)
-                statusRing.className = "w-60 h-60 rounded-full flex flex-col items-center justify-center border-8 border-yellow-500 bg-yellow-500/10 shadow-[0_0_50px_rgba(245,158,11,0.3)] transition-all duration-300";
+                // 2. ACTIVE WALKING STATE (Blue gait indication)
+                statusRing.className = "w-44 h-44 rounded-full flex flex-col items-center justify-center border-8 border-blue-500 bg-blue-500/10 shadow-[0_0_40px_rgba(59,130,246,0.25)] transition-all duration-300";
+                statusIcon.innerHTML = `<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 5H19M13 5V11M13 5L21 13M11 19H5M11 19V13M11 19L3 11"></path>
+                                        <circle cx="12" cy="4" r="1" stroke="currentColor" stroke-width="2"/>
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 20l3-4 2 3 4-6"/>`;
+                statusIcon.className = "w-16 h-16 text-blue-500";
+                statusText.innerText = "SUBJECT WALKING";
+                statusText.className = "text-base font-bold text-blue-500 mt-3 tracking-wider";
+                
+                modelClassText.innerText = "WALK";
+                modelClassText.className = "text-base font-bold text-blue-500";
+                
+                cancelSmsTimer();
+            }
+            else if (state === 2) {
+                // 3. STAIRS CLIMBING STATE (Indigo transit indication)
+                statusRing.className = "w-44 h-44 rounded-full flex flex-col items-center justify-center border-8 border-indigo-500 bg-indigo-500/10 shadow-[0_0_40px_rgba(99,102,241,0.25)] transition-all duration-300";
+                statusIcon.innerHTML = `<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 21h18M3 21v-4h4v-4h4v-4h4V5h5v4"></path>`;
+                statusIcon.className = "w-16 h-16 text-indigo-500";
+                statusText.innerText = "STAIR TRANSIT";
+                statusText.className = "text-base font-bold text-indigo-500 mt-3 tracking-wider";
+                
+                modelClassText.innerText = "STAIRS";
+                modelClassText.className = "text-base font-bold text-indigo-500";
+                
+                cancelSmsTimer();
+            }
+            else if (state === 3) {
+                // 4. PRE-FALL STATE (Yellow warning anomaly)
+                statusRing.className = "w-44 h-44 rounded-full flex flex-col items-center justify-center border-8 border-yellow-500 bg-yellow-500/10 shadow-[0_0_40px_rgba(245,158,11,0.25)] transition-all duration-300";
                 statusIcon.innerHTML = `<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path>`;
-                statusIcon.className = "w-20 h-20 text-yellow-500";
-                statusText.innerText = "注意：檢測到跌倒前兆！";
-                statusText.className = "text-base font-bold text-yellow-500 mt-3 tracking-wide";
+                statusIcon.className = "w-16 h-16 text-yellow-500";
+                statusText.innerText = "PRE-FALL WARNING";
+                statusText.className = "text-base font-bold text-yellow-500 mt-3 tracking-wider";
                 
-                modelClassText.innerText = "PRE-FALL (跌倒前兆)";
-                modelClassText.className = "text-lg font-bold text-yellow-500";
+                modelClassText.innerText = "PRE-FALL";
+                modelClassText.className = "text-base font-bold text-yellow-500";
                 
-                if (navigator.vibrate) { navigator.vibrate(300); }
+                if (navigator.vibrate) { navigator.vibrate(200); }
                 cancelSmsTimer();
             } 
-            else if (state === 2) {
-                // FALL 嚴重跌倒 (紅色)
-                if (isSystemAlertActive) return; // 避免重複觸發
-                isSystemAlertActive = true;
+            else if (state === 4) {
+                // 5. CRITICAL FALL EVENT (Red Critical Crash)
+                if (isAlertActive) return; // Terminate duplicative event triggers
+                isAlertActive = true;
 
-                statusRing.className = "w-60 h-60 rounded-full flex flex-col items-center justify-center border-8 border-red-500 bg-red-500/10 shadow-[0_0_50px_rgba(239,68,68,0.5)] animate-bounce transition-all duration-300";
-                statusIcon.innerHTML = `<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>`;
-                statusIcon.className = "w-20 h-20 text-red-500";
-                statusText.innerText = "危險！發生嚴重跌倒！";
-                statusText.className = "text-base font-bold text-red-500 mt-3 tracking-wide";
+                statusRing.className = "w-44 h-44 rounded-full flex flex-col items-center justify-center border-8 border-red-600 bg-red-600/10 shadow-[0_0_50px_rgba(220,38,38,0.5)] animate-bounce transition-all duration-300";
+                statusIcon.innerHTML = `<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"></path>`;
+                statusIcon.className = "w-16 h-16 text-red-500";
+                statusText.innerText = "FALL CRASH DETECTED";
+                statusText.className = "text-base font-bold text-red-500 mt-3 tracking-wider";
                 
-                modelClassText.innerText = "FALL CRASH (重度跌倒)";
-                modelClassText.className = "text-lg font-bold text-red-500";
+                modelClassText.innerText = "FALL CRASH";
+                modelClassText.className = "text-base font-bold text-red-500";
                 
-                // 本地警報器響起與劇烈震動
+                // Timestamp Recording
+                const fallTime = new Date().toLocaleTimeString();
+                timestampText.innerText = `FALL OCCURRED AT: ${fallTime}`;
+                timestampText.className = "text-xs font-mono font-bold text-red-400";
+
+                // Local Alarm Activation
                 startSiren();
-                if (navigator.vibrate) { navigator.vibrate([500, 300, 500, 300, 500]); }
+                if (navigator.vibrate) { navigator.vibrate([1000, 300, 1000, 300, 1000]); }
 
-                // 發送本地 iOS 橫幅通知
-                sendLocalNotification("🚨 緊急跌倒警報", "系統檢測到猛烈摔落！已啟動 10 秒安全確認機制。");
-
-                // 啟動 10 秒確認倒數計時
+                // Execute Verification Countdown
                 startSmsVerificationCountdown();
             }
         }
 
-        // 10秒確認倒數邏輯 (二次驗證)
         function startSmsVerificationCountdown() {
-            cancelSmsTimer(); // 重設現有的定時器
+            cancelSmsTimer();
             
             countdownCard.classList.remove('hidden');
             countdownVal = 10;
             countdownTimerSpan.innerText = countdownVal;
 
-            // 每秒嘀答音與更新 UI
             countdownInterval = setInterval(() => {
                 countdownVal--;
                 countdownTimerSpan.innerText = countdownVal;
                 
+                // Play warning ticks programmatically
                 if (audioCtx) {
                     let tick = audioCtx.createOscillator();
                     let tickGain = audioCtx.createGain();
                     tick.connect(tickGain);
                     tickGain.connect(audioCtx.destination);
-                    tick.frequency.setValueAtTime(1500, audioCtx.currentTime);
-                    tickGain.gain.setValueAtTime(0.1, audioCtx.currentTime);
+                    tick.frequency.setValueAtTime(1400, audioCtx.currentTime);
+                    tickGain.gain.setValueAtTime(0.08, audioCtx.currentTime);
                     tick.start();
-                    tick.stop(audioCtx.currentTime + 0.05);
+                    tick.stop(audioCtx.currentTime + 0.04);
                 }
 
                 if (countdownVal <= 0) {
@@ -341,31 +409,28 @@
                 }
             }, 1000);
 
-            // 10秒到，若無人工復位，則自動定位並跳轉簡訊
+            // Trigger SMS redirection on timeout
             smsTimer = setTimeout(() => {
-                triggerSmsAlert();
+                triggerEmergencySms();
             }, 10000);
         }
 
-        // 獲取定位並自動拉起預填簡訊
-        function triggerSmsAlert() {
+        function triggerEmergencySms() {
             countdownCard.classList.add('hidden');
             if (navigator.geolocation) {
                 navigator.geolocation.getCurrentPosition((pos) => {
                     const lat = pos.coords.latitude;
                     const lon = pos.coords.longitude;
                     const mapUrl = `https://www.google.com/maps/search/?api=1&query=${lat},${lon}`;
-                    const msg = `【緊急監護求救】系統檢測到 Jacky 發生重度跌倒且無按鍵回應！目前 GPS 定位地圖：${mapUrl}`;
+                    const msg = `[CRITICAL ALERT] Fall Detected! Subject did not respond. Location: ${mapUrl}`;
                     
-                    // 自動拉起 iOS 原生簡訊，且 100% 默認填入你的手機 + 預填內容
                     window.location.href = `sms:${emergencyContact}&body=${encodeURIComponent(msg)}`;
                 }, (err) => {
-                    // 若獲取定位失敗，發送降級簡訊
-                    const fallbackMsg = `【緊急監護求救】系統檢測到 Jacky 發生重度跌倒且無按鍵回應！(手機 GPS 獲取失敗)`;
+                    const fallbackMsg = `[CRITICAL ALERT] Fall Detected! Subject did not respond. (GPS coordinate fetch failed)`;
                     window.location.href = `sms:${emergencyContact}&body=${encodeURIComponent(fallbackMsg)}`;
                 }, { enableHighAccuracy: true });
             } else {
-                const fallbackMsg = `【緊急監護求救】系統檢測到 Jacky 發生重度跌倒且無按鍵回應！`;
+                const fallbackMsg = `[CRITICAL ALERT] Fall Detected! Subject did not respond.`;
                 window.location.href = `sms:${emergencyContact}&body=${encodeURIComponent(fallbackMsg)}`;
             }
         }
