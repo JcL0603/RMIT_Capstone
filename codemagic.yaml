@@ -32,15 +32,3 @@ workflows:
           zip -r jacky_fall_monitor.ipa Payload
     artifacts:
       - build/ios/ipa/*.ipa # 📥 告訴 Codemagic：編譯成功後，把這個 .ipa 檔案提供給 Jacky 下載！
-儲存該檔案（按 Ctrl + S）。
-🚀 第二步：將編譯劇本推送到 GitHub 雲端
-有了這份劇本，我們需要用 Git 把它送上雲端，讓 Codemagic 能夠讀取到它。
-請在 VS Code 的**終端機（Terminal）**中，逐行複製並執行以下三行指令：
-# 1. 將新建立的 codemagic.yaml 加入暫存區
-git add codemagic.yaml
-
-# 2. 提交變更，寫上 CI 註記
-git commit -m "ci: add codemagic configuration for unsigned ios build"
-
-# 3. 推送到 GitHub 倉庫
-git push
