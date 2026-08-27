@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Jacky's Web BLE Fall Monitor v5.1</title>
+    <title>Jacky's Web BLE Fall Monitor v5.3</title>
     <!-- Tailwind CSS for Modern High-Contrast Engineering UI -->
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
@@ -28,7 +28,7 @@
     <!-- Header Navigation -->
     <header class="bg-gray-900 p-4 shadow-md text-center border-b border-gray-800">
         <h1 class="text-xl font-bold tracking-widest text-blue-400 font-mono">JACKY'S FALL TELEMETRY</h1>
-        <p class="text-[10px] text-gray-500 mt-1">Edge TinyML Web BLE Real-Time Monitor v5.1</p>
+        <p class="text-[10px] text-gray-500 mt-1">Edge TinyML Web BLE Real-Time Monitor v5.3</p>
     </header>
 
     <!-- Main Content Area -->
@@ -47,9 +47,8 @@
             </div>
         </div>
 
-        <!-- 5-Class Dynamic SVG Icon Container (WebKit Rendering Bug Resolved) -->
+        <!-- 5-Class Dynamic SVG Icon Display -->
         <div id="status-icon-container" class="flex items-center justify-center">
-            <!-- Icon container will be fully re-written by JS to force Safari GPU Redraw -->
             <div id="status-ring" class="w-40 h-40 rounded-full flex flex-col items-center justify-center border-8 border-green-500 bg-green-500/10 shadow-[0_0_40px_rgba(16,185,129,0.25)] transition-all duration-300">
                 <svg class="w-16 h-16 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"></path>
@@ -66,7 +65,7 @@
             </div>
         </div>
 
-        <!-- Live Metrics Section (Category and Metric completely separated!) -->
+        <!-- Live Metrics Section (Category and Metric completely separated) -->
         <div class="grid grid-cols-3 gap-2 w-full max-w-sm">
             <!-- Box 1: Signal Vector (AVM) -->
             <div class="bg-gray-900 border border-gray-800 rounded-xl p-2.5 text-center shadow-lg">
@@ -74,19 +73,19 @@
                 <p class="text-sm font-mono font-bold text-blue-400" id="avm-val">0.000 <span class="text-[10px] text-gray-500">m/s²</span></p>
             </div>
             
-            <!-- Box 2: Active Classifier (Class Name Only - No %!) -->
+            <!-- Box 2: Active Classifier (Class Name Only) -->
             <div class="bg-gray-900 border border-gray-800 rounded-xl p-2.5 text-center shadow-lg">
                 <p class="text-[8px] text-gray-500 uppercase tracking-widest mb-1">Classifier</p>
                 <p class="text-sm font-bold text-green-500 truncate mt-0.5" id="model-class">STATIC</p>
             </div>
 
-            <!-- Box 3: Classifier Confidence (0.XX Float format ONLY!) -->
+            <!-- Box 3: Classifier Confidence (0.XX Float format ONLY) -->
             <div class="bg-gray-900 border border-gray-800 rounded-xl p-2.5 text-center shadow-lg flex flex-col justify-between">
                 <p class="text-[8px] text-gray-500 uppercase tracking-widest mb-1">Confidence</p>
                 <div class="text-center mt-0.5">
                     <span class="text-sm font-mono font-bold text-green-400" id="model-conf">1.00</span>
                 </div>
-                <!-- Mini neon progress bar showing certainty -->
+                <!-- Mini neon progress bar -->
                 <div class="w-full bg-gray-950 rounded-full h-1 mt-1 border border-gray-800">
                     <div id="model-conf-bar" class="bg-green-500 h-1 rounded-full transition-all duration-150" style="width: 100%"></div>
                 </div>
@@ -99,7 +98,7 @@
             <canvas id="avm-chart" class="w-full h-20 bg-gray-950 rounded-lg"></canvas>
         </div>
 
-        <!-- 10-Second Crisis Countdown Card (Default Hidden) -->
+        <!-- 10-Second Crisis Countdown Card -->
         <div id="countdown-card" class="hidden w-full max-w-sm bg-red-950/30 border-2 border-red-500/50 rounded-2xl p-4 text-center space-y-3 animate-pulse-red">
             <h3 class="text-red-500 font-bold text-xs tracking-wider">🚨 CRISIS VERIFICATION COUNTDOWN 🚨</h3>
             <p class="text-xs text-gray-300">
@@ -119,7 +118,7 @@
             </div>
             <!-- CSV Download Button -->
             <button id="btn-export-csv" class="w-full bg-slate-800 hover:bg-slate-700 active:bg-slate-900 text-blue-400 font-mono font-bold text-[10px] py-2 rounded border border-gray-700 tracking-wider transition-all">
-                📥 EXPORT SESSION LOGS TO CSV (DATA ACQUISITION)
+                📥 EXPORT 6-AXIS DATASET TO CSV
             </button>
         </div>
 
@@ -137,6 +136,25 @@
         </button>
     </main>
 
+    <!-- 🌟 iOS FAILSAFE: Telemetry Copy-Paste Modal with Raw 6-Axis Data 🌟 -->
+    <div id="csv-modal" class="hidden fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 z-50 transition-all duration-300">
+        <div class="bg-gray-900 border border-gray-800 rounded-2xl w-full max-w-sm p-4 flex flex-col space-y-3 shadow-2xl">
+            <h3 class="text-blue-400 font-mono font-bold text-xs tracking-widest text-center font-mono">📥 DATASET ACQUISITION</h3>
+            <p class="text-[10px] text-gray-400 text-center leading-relaxed">
+                iOS restricts direct downloads in-app. Click below to copy the full 7-column CSV dataset directly to your clipboard!
+            </p>
+            <textarea id="csv-text-area" class="w-full h-36 bg-gray-950 border border-gray-800 rounded-lg p-2 font-mono text-[9px] text-blue-300 focus:outline-none focus:border-blue-500" readonly></textarea>
+            <div class="flex space-x-2">
+                <button id="btn-copy-csv" class="flex-1 bg-blue-600 hover:bg-blue-500 text-white font-mono font-bold text-[10px] py-2 rounded-lg transition-all">
+                    COPY TO CLIPBOARD
+                </button>
+                <button id="btn-close-modal" class="flex-1 bg-gray-800 hover:bg-gray-700 text-gray-300 font-mono font-bold text-[10px] py-2 rounded-lg transition-all border border-gray-700">
+                    CLOSE WINDOW
+                </button>
+            </div>
+        </div>
+    </div>
+
     <!-- Footer -->
     <footer class="text-center p-3 text-[9px] text-gray-600 bg-gray-950 border-t border-gray-900 font-mono">
         Jacky LIN | RMIT Capstone Project 2026
@@ -149,6 +167,7 @@
         const avmCharUuid = "0000fff2-0000-1000-8000-00805f9b34fb"; // FFF2: AVM Float
         const classCharUuid = "0000fff3-0000-1000-8000-00805f9b34fb"; // FFF3: Winner Class (0:STATIC, 1:WALK, 2:STAIRS, 3:PRE-FALL, 4:FALL)
         const confCharUuid = "0000fff4-0000-1000-8000-00805f9b34fb"; // FFF4: Winner Confidence % (0-100)
+        const imuCharUuid = "0000fff5-0000-1000-8000-00805f9b34fb"; // FFF5: Raw IMU Data (6x Float32 Array = 24 bytes)
 
         // Default Recipient Configured
         const emergencyContact = "+85267347740";
@@ -163,6 +182,10 @@
 
         // Session CSV Logging Array
         let sessionLogs = [];
+
+        // Global IMU alignment buffer
+        let latest_ax = 0.0, latest_ay = 0.0, latest_az = 0.0;
+        let latest_gx = 0.0, latest_gy = 0.0, latest_gz = 0.0;
 
         // Dynamic State Storage
         let currentWinnerClass = 0;
@@ -224,7 +247,7 @@
         let avmHistory = [];
         const maxPoints = 50;
 
-        // Elements (Grounded and fact-checked)
+        // Elements
         const bodyBg = document.getElementById('body-bg');
         const connStateSpan = document.getElementById('conn-state');
         const iconContainer = document.getElementById('status-icon-container');
@@ -239,8 +262,14 @@
         const timestampText = document.getElementById('fall-timestamp');
         const eventLog = document.getElementById('event-log');
         const btnExportCsv = document.getElementById('btn-export-csv');
+
+        // Modal Elements
+        const csvModal = document.getElementById('csv-modal');
+        const csvTextArea = document.getElementById('csv-text-area');
+        const btnCopyCsv = document.getElementById('btn-copy-csv');
+        const btnCloseModal = document.getElementById('btn-close-modal');
         
-        // 🟢 FIX: Global declaration of Canvas variables to prevent Thread ReferenceError!
+        // Canvas Declarations
         const canvas = document.getElementById('avm-chart');
         const ctx = canvas.getContext('2d');
 
@@ -334,7 +363,7 @@
             }
         }
 
-        // Web BLE Scan Discovery (ReferenceError Resolved)
+        // Web BLE Scan Discovery
         btnScan.addEventListener('click', async () => {
             initAudio();
             setupCanvas();
@@ -368,6 +397,26 @@
                     handleFsmStateChange(fsmState);
                 });
 
+                // 🔔 [v14] FFF5 Characteristic Subscription (Raw 6-Axis Float Array)
+                try {
+                    const imuChar = await service.getCharacteristic(imuCharUuid);
+                    await imuChar.startNotifications();
+                    imuChar.addEventListener('characteristicvaluechanged', (e) => {
+                        const val = e.target.value; // DataView
+                        
+                        // Parse 6 floats (Little Endian, Float32)
+                        latest_ax = val.getFloat32(0, true);
+                        latest_ay = val.getFloat32(4, true);
+                        latest_az = val.getFloat32(8, true);
+                        latest_gx = val.getFloat32(12, true);
+                        latest_gy = val.getFloat32(16, true);
+                        latest_gz = val.getFloat32(20, true);
+                    });
+                    logEvent("Subscribed to Raw 6-axis IMU characteristic FFF5! ✅");
+                } catch (e) {
+                    logEvent("Warning: FFF5 raw IMU characteristic not found on wristband.");
+                }
+
                 // 🔔 FFF2 Characteristic Subscription (AVM Waveform Telemetry)
                 const avmChar = await service.getCharacteristic(avmCharUuid);
                 await avmChar.startNotifications();
@@ -383,10 +432,16 @@
                     if(avmHistory.length > maxPoints) avmHistory.shift();
                     drawChart();
 
-                    // Push to session logs array (for CSV exporter)
+                    // 🟢 ALIGNED 5Hz SNAPSHOT LOGGING: Packs Timestamp, raw 6-axis IMU, AVM, and AI states
                     const activeStateName = classNames[currentWinnerClass] || "STATIC";
                     sessionLogs.push({
                         time: new Date().toLocaleTimeString(),
+                        ax: latest_ax.toFixed(4),
+                        ay: latest_ay.toFixed(4),
+                        az: latest_az.toFixed(4),
+                        gx: latest_gx.toFixed(2),
+                        gy: latest_gy.toFixed(2),
+                        gz: latest_gz.toFixed(2),
                         avm: avm.toFixed(4),
                         classification: activeStateName,
                         confidence: (currentConfidence / 100.0).toFixed(2)
@@ -456,9 +511,9 @@
             handleFsmStateChange(0);
         });
 
-        // Handles FFF1 FSM States strictly (0: Standby, 1: Prefall, 2: Fall Alert)
+        // Handles FFF1 FSM States strictly
         function handleFsmStateChange(fsmState) {
-            // Dual-mode fallback configuration (If FFF3 characteristic cache fails)
+            // Dual-mode fallback configuration
             if (!fff3Supported) {
                 if (fsmState === 0) {
                     currentWinnerClass = 0; // STATIC fallback
@@ -501,28 +556,24 @@
             }
         }
 
-        // Renders the active 5-class UI telemetry dynamically (resolves WebKit SVG Redraw bug and assigns indexes correctly)
+        // Renders the active 5-class UI telemetry dynamically
         function renderTelemetryUI() {
             const className = classNames[currentWinnerClass] !== undefined ? classNames[currentWinnerClass] : "STATIC";
             const classColor = classColors[currentWinnerClass] !== undefined ? classColors[currentWinnerClass] : "text-green-500";
-            
-            // 🟢 Formatting probability decimal strictly as 0.XX format as requested (e.g. 100% -> 1.00, 94% -> 0.94)
             const confidenceFloat = (currentConfidence / 100.0).toFixed(2);
 
-            // 🟢 CRITICAL RESOLUTION: Write the COMPLETE SVG block into the container's innerHTML
-            // This forces Safari/WebKit GPU to destroy the old DOM node and redraw the new vector shape!
+            // Write the COMPLETE SVG block to bypass Safari/WebKit GPU Redraw Bug!
             if (!isAlertActive) {
-                iconContainer.innerHTML = classSVGs[currentWinnerClass] !== undefined ? classSVGs[currentWinnerClass] : classSVGs[0];
+                iconContainer.innerHTML = classSVGs[currentWinnerClass] !== undefined ? classSVGs[currentWinnerClass] : classSVGs;
             } else {
-                // If fall alert is active, force render the bouncing Critical Fall Heartbeat
-                iconContainer.innerHTML = classSVGs[4];
+                iconContainer.innerHTML = classSVGs[4]; // Lock to Critical Fall Heartbeat SVG
             }
 
-            // 🟢 Separated metric rendering as requested!
-            modelClassText.innerText = className; // Only class name (STATIC, WALK, STAIRS, etc.)
+            // Separated metric rendering
+            modelClassText.innerText = className; 
             modelClassText.className = `text-sm font-bold ${classColor}`;
 
-            modelConfText.innerText = confidenceFloat; // Display ONLY float decimal (0.XX) as requested! No percentage symbol!
+            modelConfText.innerText = confidenceFloat; 
             modelConfText.className = `text-sm font-mono font-bold ${classColor}`;
             
             // Render neon gauge progress bar width
@@ -598,30 +649,65 @@
             }
         }
 
-        // CSV Exporter implementation (RMIT Academic Research Quality Asset)
+        // 🌟 CSV Exporter: Generates the strict 10-column clinical dataset as requested! 🌟
         btnExportCsv.addEventListener('click', () => {
             if (sessionLogs.length === 0) {
-                alert("No telemetry data captured in this session yet!");
+                alert("No IMU data captured in this session yet! Connect the device first.");
                 return;
             }
             
-            let csvContent = "data:text/csv;charset=utf-8,";
-            csvContent += "Local Time,Signal AVM (m/s2),TinyML Active Class,AI Prediction Confidence\n";
-            
+            // 🟢 STRICT 10-COLUMN DATA STRUCTURE matching your academic requirement
+            let csvContent = "Timestamp,AX,AY,AZ,GX,GY,GZ,AVM,Classifier,Confidence\n";
             sessionLogs.forEach(row => {
-                csvContent += `"${row.time}","${row.avm}","${row.classification}","${row.confidence}"\n`;
+                csvContent += `"${row.time}",${row.ax},${row.ay},${row.az},${row.gx},${row.gy},${row.gz},${row.avm},"${row.classification}",${row.confidence}\n`;
             });
             
-            const encodedUri = encodeURI(csvContent);
-            const link = document.createElement("a");
-            link.setAttribute("href", encodedUri);
+            // Populate text area for manual copy-paste failsafe
+            csvTextArea.value = csvContent;
+            csvModal.classList.remove('hidden');
+            logEvent("6-axis CSV dataset compiled successfully!");
+
+            // Fallback: Automatic direct file download (for PC or open Safari environments)
+            try {
+                const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+                const url = URL.createObjectURL(blob);
+                const link = document.createElement("a");
+                link.setAttribute("href", url);
+                const timestamp = new Date().toISOString().slice(0,10);
+                link.setAttribute("download", `Jacky_6Axis_Dataset_${timestamp}.csv`);
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+                URL.revokeObjectURL(url);
+            } catch (e) {
+                console.log("Direct download blocked by local sandboxed environment.");
+            }
+        });
+
+        // Copy Modal Actions
+        btnCopyCsv.addEventListener('click', () => {
+            csvTextArea.select();
+            csvTextArea.setSelectionRange(0, 99999); // Mobile compatibility selector
             
-            const timestamp = new Date().toISOString().slice(0,10);
-            link.setAttribute("download", `Jacky_Telemetry_Data_${timestamp}.csv`);
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
-            logEvent("Session logs exported to CSV successfully! ✅");
+            try {
+                navigator.clipboard.writeText(csvTextArea.value);
+                btnCopyCsv.innerText = "DATA COPIED SUCCESSFULLY! ✅";
+                btnCopyCsv.className = "flex-1 bg-green-600 text-white font-mono font-bold text-[10px] py-2 rounded-lg transition-all shadow-[0_0_15px_rgba(74,222,128,0.4)]";
+                
+                if (navigator.vibrate) { navigator.vibrate(100); }
+                logEvent("6-axis dataset copied to clipboard successfully!");
+
+                setTimeout(() => {
+                    btnCopyCsv.innerText = "COPY TO CLIPBOARD";
+                    btnCopyCsv.className = "flex-1 bg-blue-600 hover:bg-blue-500 text-white font-mono font-bold text-[10px] py-2 rounded-lg transition-all";
+                }, 2000);
+            } catch (err) {
+                alert("Auto-copy blocked. Please select and copy the text area content manually.");
+            }
+        });
+
+        btnCloseModal.addEventListener('click', () => {
+            csvModal.classList.add('hidden');
         });
     </script>
 </body>
