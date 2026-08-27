@@ -1,35 +1,41 @@
 # ==========================================
-# Jacky Fall Monitor CI/CD Build Script (Fixed)
+# Jacky Fall Monitor CI/CD Build Script (Fixed v2)
 # Designed for Windows 11 + iPhone 16PM Sideloading
 # ==========================================
 workflows:
   ios-unsigned-build:
     name: Jacky Fall Monitor - iOS Unsigned Build
     max_build_duration: 30
-    instance_type: mac_mini_m1 # 🟢 修正：對齊官方 M1 實例枚舉值
+    instance_type: mac_mini_m1 # 對齊官方 M1 實例
     environment:
       flutter: stable
       xcode: latest
     triggering:
       events:
         - push
-      branch_patterns: # 🟢 修正：採用標準的分支過濾架構
+      branch_patterns:
         - pattern: 'main'
           include: true
     scripts:
       - name: 1. 獲取 Flutter 相依庫
         script: |
           flutter pub get
-      - name: 2. 執行免簽名實體 iOS 編譯
+      - name: 2. 注入免簽名設定並編譯 iOS
         script: |
-          # 💡 編譯出運行在 iPhone 實體機上的 Release 版，但跳過蘋果官方證書檢驗
+          # 💡 這是繞過 Xcode 實體機編譯檢查的核心關鍵！
+          # 我們向 Flutter 內置的 Release.xcconfig 配置文件動態追加參數，迫使 Xcode 內核關閉簽名與 Team ID 預檢
+          echo "CODE_SIGNING_ALLOWED=NO" >> ios/Flutter/Release.xcconfig
+          echo "CODE_SIGNING_REQUIRED=NO" >> ios/Flutter/Release.xcconfig
+          echo "CODE_SIGN_IDENTITY=" >> ios/Flutter/Release.xcconfig
+          
+          # 執行免簽名實體 iOS 編譯
           flutter build ios --release --no-codesign
       - name: 3. 封裝為 Sideloadly 相容的實體 .ipa 檔案
         script: |
-          # 💡 在 Windows 下繞過 Mac 證書的關鍵！我們手動創建標準 iOS 安裝包結構
+          # 在 Windows 下繞過 Mac 證書的關鍵！我們手動創建標準 iOS 安裝包 Payload 結構
           mkdir -p build/ios/ipa/Payload
           cp -r build/ios/iphoneos/Runner.app build/ios/ipa/Payload
           cd build/ios/ipa
           zip -r jacky_fall_monitor.ipa Payload
     artifacts:
-      - build/ios/ipa/*.ipa # 📥 告訴 Codemagic：編譯成功後，把這個 .ipa 提供給 Jacky 下載！
+      - build/ios/ipa/*.ipa # 📥 編譯成功後，把這個 .ipa 提供給 Jacky 下載！
