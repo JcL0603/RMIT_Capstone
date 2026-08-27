@@ -65,7 +65,7 @@
             </div>
         </div>
 
-        <!-- Live Metrics Section (Category and Metric completely separated) -->
+        <!-- Live Metrics Section -->
         <div class="grid grid-cols-3 gap-2 w-full max-w-sm">
             <!-- Box 1: Signal Vector (AVM) -->
             <div class="bg-gray-900 border border-gray-800 rounded-xl p-2.5 text-center shadow-lg">
@@ -98,7 +98,7 @@
             <canvas id="avm-chart" class="w-full h-20 bg-gray-950 rounded-lg"></canvas>
         </div>
 
-        <!-- 10-Second Crisis Countdown Card -->
+        <!-- 10-Second Crisis Countdown Card (Default Hidden) -->
         <div id="countdown-card" class="hidden w-full max-w-sm bg-red-950/30 border-2 border-red-500/50 rounded-2xl p-4 text-center space-y-3 animate-pulse-red">
             <h3 class="text-red-500 font-bold text-xs tracking-wider">🚨 CRISIS VERIFICATION COUNTDOWN 🚨</h3>
             <p class="text-xs text-gray-300">
@@ -141,7 +141,7 @@
         <div class="bg-gray-900 border border-gray-800 rounded-2xl w-full max-w-sm p-4 flex flex-col space-y-3 shadow-2xl">
             <h3 class="text-blue-400 font-mono font-bold text-xs tracking-widest text-center font-mono">📥 DATASET ACQUISITION</h3>
             <p class="text-[10px] text-gray-400 text-center leading-relaxed">
-                iOS restricts direct downloads in-app. Click below to copy the full 7-column CSV dataset directly to your clipboard!
+                iOS restricts direct downloads in-app. Click below to copy the full 10-column CSV dataset directly to your clipboard!
             </p>
             <textarea id="csv-text-area" class="w-full h-36 bg-gray-950 border border-gray-800 rounded-lg p-2 font-mono text-[9px] text-blue-300 focus:outline-none focus:border-blue-500" readonly></textarea>
             <div class="flex space-x-2">
@@ -215,7 +215,7 @@
                 </div>`,
             3: `<div id="status-ring" class="w-40 h-40 rounded-full flex flex-col items-center justify-center border-8 border-yellow-500 bg-yellow-500/10 shadow-[0_0_40px_rgba(245,158,11,0.25)] transition-all duration-300">
                     <svg class="w-16 h-16 text-yellow-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path>
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667(1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path>
                     </svg>
                     <span class="text-xs font-bold text-yellow-500 mt-2 tracking-widest font-mono">PRE-FALL</span>
                 </div>`,
@@ -401,6 +401,7 @@
                 try {
                     const imuChar = await service.getCharacteristic(imuCharUuid);
                     await imuChar.startNotifications();
+                    let firstImuPacket = true;
                     imuChar.addEventListener('characteristicvaluechanged', (e) => {
                         const val = e.target.value; // DataView
                         
@@ -411,8 +412,14 @@
                         latest_gx = val.getFloat32(12, true);
                         latest_gy = val.getFloat32(16, true);
                         latest_gz = val.getFloat32(20, true);
+
+                        // 🟢 LOG EVENT ONLY ONCE: Proves FFF5 link is active!
+                        if (firstImuPacket) {
+                            firstImuPacket = false;
+                            logEvent("Successfully receiving raw 6-axis data on FFF5! ✅");
+                        }
                     });
-                    logEvent("Subscribed to Raw 6-axis IMU characteristic FFF5! ✅");
+                    logEvent("Found 6-axis IMU characteristic FFF5, waiting for raw data...");
                 } catch (e) {
                     logEvent("Warning: FFF5 raw IMU characteristic not found on wristband.");
                 }
@@ -566,7 +573,7 @@
             if (!isAlertActive) {
                 iconContainer.innerHTML = classSVGs[currentWinnerClass] !== undefined ? classSVGs[currentWinnerClass] : classSVGs;
             } else {
-                iconContainer.innerHTML = classSVGs[4]; // Lock to Critical Fall Heartbeat SVG
+                iconContainer.innerHTML = classSVGs; // Lock to Critical Fall Heartbeat SVG
             }
 
             // Separated metric rendering
@@ -649,14 +656,14 @@
             }
         }
 
-        // 🌟 CSV Exporter: Generates the strict 10-column clinical dataset as requested! 🌟
+        // CSV Exporter
         btnExportCsv.addEventListener('click', () => {
             if (sessionLogs.length === 0) {
                 alert("No IMU data captured in this session yet! Connect the device first.");
                 return;
             }
             
-            // 🟢 STRICT 10-COLUMN DATA STRUCTURE matching your academic requirement
+            // STRICT 10-COLUMN DATA STRUCTURE matching your academic requirement
             let csvContent = "Timestamp,AX,AY,AZ,GX,GY,GZ,AVM,Classifier,Confidence\n";
             sessionLogs.forEach(row => {
                 csvContent += `"${row.time}",${row.ax},${row.ay},${row.az},${row.gx},${row.gy},${row.gz},${row.avm},"${row.classification}",${row.confidence}\n`;
