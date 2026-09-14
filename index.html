@@ -548,8 +548,6 @@
             countdownSeconds = 10;
             countdownTimer.innerText = countdownSeconds;
 
-			logEvent("🔊 啟動網頁端警報音效...");
-			startWebSiren();
             if (countdownInterval) clearInterval(countdownInterval);
             countdownInterval = setInterval(() => {
                 countdownSeconds--;
@@ -557,16 +555,19 @@
                 if (countdownSeconds <= 0) {
                     clearInterval(countdownInterval);
                     logEvent("🚨 Countdown expired! Executing automated SOS dispatch.");
+					logEvent("🔊 啟動網頁端警報音效...");
+					startWebSiren();
                     btnSmsSos.click();
                 }
             }, 1000);
         }
 
         function dismissCrisisModal() {
-			stopWebSiren();
+
             if (countdownInterval) clearInterval(countdownInterval);
             crisisModal.classList.add('hidden');
             logEvent("✅ Crisis alert DISMISSED. Restoring Standby state.");
+			stopWebSiren();
         }
 
         // 🔴 PC + Mobile SOS 按鈕處理邏輯 (帶 Caregiver 電話與 GPS 連結)
