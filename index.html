@@ -303,7 +303,25 @@
         // BLE Search & Connect
         btnConnect.addEventListener('click', async () => {
             try {
+                // 🔴 [關鍵修正] 利用物理點擊的瞬間，強制解鎖 Web Audio 引擎
+                if (!audioCtx) {
+                    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+                }
+                if (audioCtx.state === 'suspended') {
+                    audioCtx.resume();
+                }
+                // 發射一個 0.1 秒的靜音方波，打通 iOS/Android 系統的音訊沙盒
+                const unlockOsc = audioCtx.createOscillator();
+                const unlockGain = audioCtx.createGain();
+                unlockGain.gain.value = 0; // 絕對靜音
+                unlockOsc.connect(unlockGain);
+                unlockGain.connect(audioCtx.destination);
+                unlockOsc.start();
+                unlockOsc.stop(audioCtx.currentTime + 0.1);
+                logEvent("🔊 Web Audio 引擎已透過實體點擊成功解鎖。");
+
                 logEvent("📡 Scanning for Web BLE devices...");
+
                 bleDevice = await navigator.bluetooth.requestDevice({
                     filters: [
                         { namePrefix: 'Jacky' },
