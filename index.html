@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Jacky LIN - TinyML Fall Monitor v5.5</title>
+    <title>Jacky LIN - TinyML Fall Monitor v5.6</title>
     <!-- Tailwind CSS & Chart.js CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
@@ -19,7 +19,7 @@
         <div class="flex items-center gap-3">
             <div class="w-3 h-3 rounded-full bg-slate-500" id="status-dot"></div>
             <div>
-                <h1 class="text-sm font-bold tracking-wide uppercase text-slate-200">TinyML Real-Time Fall Monitor <span class="text-xs px-2 py-0.5 rounded bg-emerald-950 text-emerald-400 border border-emerald-800 font-mono">v5.5</span></h1>
+                <h1 class="text-sm font-bold tracking-wide uppercase text-slate-200">TinyML Real-Time Fall Monitor <span class="text-xs px-2 py-0.5 rounded bg-emerald-950 text-emerald-400 border border-emerald-800 font-mono">v5.6</span></h1>
                 <p class="text-[10px] text-slate-400 font-mono">RMIT Capstone S4143087 | Jacky LIN | Sup: Dr. Scottie Man</p>
             </div>
         </div>
@@ -31,7 +31,7 @@
     <!-- Main Container -->
     <main class="max-w-4xl mx-auto px-4 mt-6 grid grid-cols-1 md:grid-cols-3 gap-6">
         
-        <!-- Left Panel: Real-time State & Controls -->
+        <!-- Left Panel: Real-time State, Controls & Settings -->
         <section class="md:col-span-1 space-y-4">
             
             <!-- AI State Card -->
@@ -41,6 +41,19 @@
                     <div id="state-icon" class="text-4xl mb-1">🛡️</div>
                     <div id="state-text" class="text-xl font-mono font-extrabold text-slate-400 uppercase">DISCONNECTED</div>
                     <div id="confidence-text" class="text-xs font-mono text-slate-500 mt-1">Confidence: 0.0%</div>
+                </div>
+            </div>
+
+            <!-- Emergency Contact & GPS Location Card -->
+            <div class="bg-slate-900 border border-slate-800 rounded-xl p-4 shadow-xl space-y-3">
+                <h2 class="text-xs font-mono text-slate-400 uppercase tracking-wider">Emergency Contact & GPS</h2>
+                <div>
+                    <label class="block text-[10px] font-mono text-slate-400 mb-1 uppercase">Caregiver Phone Number:</label>
+                    <input id="input-caregiver-phone" type="tel" value="+61400000000" class="w-full bg-slate-950 text-slate-200 font-mono text-xs p-2 rounded border border-slate-800 focus:border-blue-500 focus:outline-none" placeholder="+61400000000">
+                </div>
+                <div class="bg-slate-950 p-2.5 rounded-lg border border-slate-800/80 flex justify-between items-center">
+                    <span class="text-[11px] text-slate-400 font-mono">📍 GPS Location:</span>
+                    <span id="gps-coords-val" class="text-[11px] font-mono text-emerald-400 font-bold">Acquiring...</span>
                 </div>
             </div>
 
@@ -103,7 +116,7 @@
                     <button id="btn-clear-log" class="text-[10px] font-mono text-slate-500 hover:text-slate-300">Clear</button>
                 </div>
                 <div id="log-console" class="bg-slate-950 border border-slate-800 rounded-lg p-3 h-32 overflow-y-auto font-mono text-[11px] text-slate-400 space-y-1">
-                    <div>[SYSTEM] Portal initialized v5.5. Ready for BLE connection.</div>
+                    <div>[SYSTEM] Portal initialized v5.6. Ready for BLE connection.</div>
                 </div>
             </div>
         </section>
@@ -113,16 +126,21 @@
     <!-- Hidden Export Button -->
     <button id="btn-export-csv" class="hidden"></button>
 
-    <!-- Crisis Verification Modal (已修復跳動，改為穩定醒目紅框) -->
+    <!-- Crisis Verification Modal (鎖定 Latch 邏輯，高亮醒目紅框，取消畫面抖動) -->
     <div id="crisis-modal" class="fixed inset-0 bg-slate-950/90 backdrop-blur-md z-50 hidden flex items-center justify-center p-4">
         <div class="bg-rose-950 border-2 border-rose-500 rounded-2xl max-w-md w-full p-6 text-center shadow-2xl animate-pulse">
             <div class="text-5xl mb-3">🚨</div>
             <h2 class="text-2xl font-black text-rose-100 uppercase tracking-wider">CRISIS VERIFICATION</h2>
             <p class="text-xs text-rose-300 mt-1">Impact & Fall Crash Detected by TinyML 1D-CNN!</p>
 
-            <div class="my-6 bg-slate-900/80 p-4 rounded-xl border border-rose-900">
+            <div class="my-5 bg-slate-900/90 p-4 rounded-xl border border-rose-900/80 space-y-2">
                 <div class="text-6xl font-mono font-black text-rose-400" id="countdown-timer">10</div>
-                <div class="text-[10px] font-mono text-rose-300 uppercase mt-1">Seconds until SOS Emergency Dispatch</div>
+                <div class="text-[10px] font-mono text-rose-300 uppercase">Seconds until SOS Emergency Dispatch</div>
+                
+                <div class="pt-2 border-t border-rose-900/50 text-[11px] font-mono text-slate-300 space-y-1 text-left">
+                    <div>📞 <span class="text-slate-400">Target Contact:</span> <span id="modal-caregiver-phone" class="text-emerald-400 font-bold">+61400000000</span></div>
+                    <div>📍 <span class="text-slate-400">GPS Address:</span> <span id="modal-gps-coords" class="text-amber-300 font-bold">Acquiring...</span></div>
+                </div>
             </div>
 
             <div class="space-y-3">
@@ -176,6 +194,19 @@
         const countdownTimer = document.getElementById('countdown-timer');
         const btnSmsSos = document.getElementById('btn-sms-sos');
         const btnDismissAlert = document.getElementById('btn-dismiss-alert');
+        const inputCaregiverPhone = document.getElementById('input-caregiver-phone');
+        const gpsCoordsVal = document.getElementById('gps-coords-val');
+        const modalCaregiverPhone = document.getElementById('modal-caregiver-phone');
+        const modalGpsCoords = document.getElementById('modal-gps-coords');
+
+        // Local Storage for Caregiver Phone Number
+        const savedPhone = localStorage.getItem('jacky_caregiver_phone');
+        if (savedPhone) {
+            inputCaregiverPhone.value = savedPhone;
+        }
+        inputCaregiverPhone.addEventListener('input', (e) => {
+            localStorage.setItem('jacky_caregiver_phone', e.target.value.trim());
+        });
 
         // Chart.js Setup
         const ctx = document.getElementById('chart-avm').getContext('2d');
@@ -224,13 +255,19 @@
             navigator.geolocation.getCurrentPosition(
                 (pos) => {
                     userGeoCoords = `${pos.coords.latitude.toFixed(5)},${pos.coords.longitude.toFixed(5)}`;
+                    gpsCoordsVal.innerText = userGeoCoords;
+                    modalGpsCoords.innerText = userGeoCoords;
                     logEvent(`📍 GPS Location Acquired: ${userGeoCoords}`);
                 },
-                (err) => { logEvent(`⚠️ GPS Error: ${err.message}`); }
+                (err) => { 
+                    gpsCoordsVal.innerText = "GPS Unavailable";
+                    modalGpsCoords.innerText = "GPS Unavailable";
+                    logEvent(`⚠️ GPS Error: ${err.message}`); 
+                }
             );
         }
 
-        // BLE Search & Connect (使用雙重相容過濾器)
+        // BLE Search & Connect
         btnConnect.addEventListener('click', async () => {
             try {
                 logEvent("📡 Scanning for Web BLE devices...");
@@ -242,7 +279,7 @@
                     optionalServices: [SERVICE_UUID]
                 });
 
-                // 🔴 監聽藍牙物理中斷事件 (例如按了硬體 RESET 或斷電)
+                // 🔴 監聽藍牙物理中斷事件 (如按了物理 RESET 或斷電)
                 bleDevice.addEventListener('gattserverdisconnected', onDeviceDisconnected);
 
                 logEvent("🔗 Connecting to GATT Server...");
@@ -313,7 +350,7 @@
                     GZ: latest_gz.toFixed(2),
                     AVM: avm.toFixed(4),
                     Classifier: activeStateName,
-                    Confidence: (currentConfidence * 100.0).toFixed(1) + "%"
+                    Confidence: currentConfidence.toFixed(1) + "%"
                 });
             }
         }
@@ -330,23 +367,14 @@
                 triggerCrisisModal();
             } else {
                 stateText.className = "text-xl font-mono font-extrabold text-emerald-400 uppercase";
-                // 若手環復位至其他狀態，自動關閉警報 Modal
-                if (!crisisModal.classList.contains('hidden')) {
-                    dismissCrisisModal();
-                }
+                // 🔴 注意：移除原本自動 dismiss 邏輯！跌倒後即使切回 STATIC，Modal 依然鎖定 Hold 住倒計時！
             }
         }
 
-        // 🔴 信心度相容解析邏輯（修復 0.0% 問題）
+        // 🔴 信心度 100% 準確解析 (C++ 發送的是 uint8_t 0-100)
         function handleConfChange(e) {
-            let rawConf = e.target.value.getFloat32(0, true);
-            // 若為 0.0 到 1.0 的小數表示，自動乘以 100 轉為百分比
-            if (rawConf <= 1.0) {
-                currentConfidence = rawConf;
-            } else {
-                currentConfidence = rawConf / 100.0;
-            }
-            confidenceText.innerText = `Confidence: ${(currentConfidence * 100.0).toFixed(1)}%`;
+            currentConfidence = e.target.value.getUint8(0); // 直接讀取 1 byte uint8_t
+            confidenceText.innerText = `Confidence: ${currentConfidence.toFixed(1)}%`;
         }
 
         function handleRawChange(e) {
@@ -418,8 +446,12 @@
             logEvent("💾 Clean CSV segment exported successfully!");
         }
 
-        // 🔴 Crisis Modal & PC/Mobile Dual-mode SOS Logic
+        // 🔴 Crisis Modal & Caregiver Phone / GPS Location Logic
         function triggerCrisisModal() {
+            const caregiverPhone = inputCaregiverPhone.value.trim() || "+61400000000";
+            modalCaregiverPhone.innerText = caregiverPhone;
+            modalGpsCoords.innerText = userGeoCoords;
+
             crisisModal.classList.remove('hidden');
             countdownSeconds = 10;
             countdownTimer.innerText = countdownSeconds;
@@ -442,21 +474,22 @@
             logEvent("✅ Crisis alert DISMISSED. Restoring Standby state.");
         }
 
-        // 🔴 PC + Mobile SOS 按鈕處理邏輯
+        // 🔴 PC + Mobile SOS 按鈕處理邏輯 (結合 Caregiver 電話與可視化 GPS)
         btnSmsSos.addEventListener('click', () => {
-            const smsText = `EMERGENCY: Fall Crash Detected! User Jacky LIN needs immediate aid. GPS Location: https://maps.google.com/?q=${userGeoCoords}`;
+            const caregiverPhone = inputCaregiverPhone.value.trim() || "+61400000000";
+            const smsText = `EMERGENCY: Fall Crash Detected! User Jacky LIN needs immediate aid. Caregiver: ${caregiverPhone}. GPS Location: https://maps.google.com/?q=${userGeoCoords}`;
             
             // 複製求救文字至剪貼簿 (兼顧 PC 端測試)
             if (navigator.clipboard) {
                 navigator.clipboard.writeText(smsText);
-                logEvent("📋 GPS SOS text copied to clipboard!");
+                logEvent(`📋 GPS SOS text copied to clipboard! Target Caregiver: ${caregiverPhone}`);
             }
 
             // 打開 Google Maps 頁面 (兼顧 PC 端驗證)
             window.open(`https://maps.google.com/?q=${userGeoCoords}`, '_blank');
 
-            // 嘗試觸發手機原生 SMS 協議
-            window.location.href = `sms:?&body=${encodeURIComponent(smsText)}`;
+            // 嘗試觸發手機原生 SMS 協議 (帶預設看護人號碼)
+            window.location.href = `sms:${caregiverPhone}?&body=${encodeURIComponent(smsText)}`;
         });
 
         btnDismissAlert.addEventListener('click', dismissCrisisModal);
