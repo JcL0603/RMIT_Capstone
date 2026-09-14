@@ -358,9 +358,14 @@
             avmChart.update();
             // Recording Gate: 寫入 CSV 日誌陣列
             if (isRecordingActive) {
+                const now = new Date();
+                // 獲取並補齊 3 位數毫秒，確保 25Hz 取樣能精確區分 40ms 間隔
+                const ms = now.getMilliseconds().toString().padStart(3, '0');
+                const exactTimestamp = `${now.toLocaleTimeString()}.${ms}`;
+
                 const activeStateName = classNames[currentWinnerClass] || "STATIC";
                 sessionLogs.push({
-                    timestamp: new Date().toLocaleTimeString(),
+                    timestamp: exactTimestamp,
                     AX: latest_ax.toFixed(4),
                     AY: latest_ay.toFixed(4),
                     AZ: latest_az.toFixed(4),
@@ -459,20 +464,47 @@
             });
 
             const csvString = csvRows.join("\n");
+            const fileName = `Jacky_Telemetry_${Date.now()}.csv`;
+
+            // 備用機制 1：強制複製到剪貼簿 (支援手機端用戶直接貼上至備忘錄)
+            if (navigator.clipboard) {
+                navigator.clipboard.writeText(csvString).then(() => {
+                    logEvent("📋 原始 CSV 數據已複製到系統剪貼簿！");
+                }).catch(err => logEvent("⚠️ 剪貼簿寫入失敗。"));
+            }
+
+            // 備用機制 2：呼叫手機原生 Share API (AirDrop, Line, 郵件, 儲存到檔案)
+            if (navigator.share) {
+                const file = new File([csvString], fileName, { type: 'text/csv' });
+                // 檢查瀏覽器是否支援文件分享
+                if (navigator.canShare && navigator.canShare({ files: [file] })) {
+                    navigator.share({
+                        title: 'TinyML Fall Dataset',
+                        files: [file]
+                    }).then(() => {
+                        logEvent("📤 CSV 檔案已透過手機系統分享匯出！");
+                    }).catch(err => {
+                        logEvent(`⚠️ 分享操作取消或失敗: ${err}`);
+                    });
+                    return; // 如果成功呼叫原生分享，就終止後續的 PC 端下載邏輯
+                }
+            }
+
+            // 原始機制：PC 端標準 Blob 下載
             const blob = new Blob([csvString], { type: 'text/csv' });
             const url = window.URL.createObjectURL(blob);
             const a = document.createElement('a');
             a.setAttribute('href', url);
-            a.setAttribute('download', `Jacky_Telemetry_Segment_${Date.now()}.csv`);
+            a.setAttribute('download', fileName);
             document.body.appendChild(a);
             a.click();
             document.body.removeChild(a);
-            logEvent("💾 Clean CSV segment exported successfully!");
+            logEvent("💾 CSV 檔案已透過瀏覽器下載完成 (Desktop 模式)！");
         }
 
         // 🔴 Crisis Modal Logic
         function triggerCrisisModal() {
-            const caregiverPhone = inputCaregiverPhone.value.trim() || "+61400000000";
+            const caregiverPhone = inputCaregiverPhone.value.trim() || "+85267347740";
             modalCaregiverPhone.innerText = caregiverPhone;
             modalGpsCoords.innerText = userGeoCoords;
 
@@ -500,7 +532,7 @@
 
         // 🔴 PC + Mobile SOS 按鈕處理邏輯 (帶 Caregiver 電話與 GPS 連結)
         btnSmsSos.addEventListener('click', () => {
-            const caregiverPhone = inputCaregiverPhone.value.trim() || "+61400000000";
+            const caregiverPhone = inputCaregiverPhone.value.trim() || "+85267347740";
             const smsText = `EMERGENCY: Fall Crash Detected! User Jacky LIN needs immediate aid. Caregiver: ${caregiverPhone}. GPS Location: https://maps.google.com/?q=${userGeoCoords}`;
             
             // 複製求救文字至剪貼簿 (兼顧 PC 端測試)
