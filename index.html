@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Jacky LIN - TinyML Fall Monitor v5.6</title>
+    <title>Jacky LIN - TinyML Fall Monitor v5.9 (v15 Firmware Aligned)</title>
     <!-- Tailwind CSS & Chart.js CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
@@ -19,7 +19,7 @@
         <div class="flex items-center gap-3">
             <div class="w-3 h-3 rounded-full bg-slate-500" id="status-dot"></div>
             <div>
-                <h1 class="text-sm font-bold tracking-wide uppercase text-slate-200">TinyML Real-Time Fall Monitor <span class="text-xs px-2 py-0.5 rounded bg-emerald-950 text-emerald-400 border border-emerald-800 font-mono">v5.6</span></h1>
+                <h1 class="text-sm font-bold tracking-wide uppercase text-slate-200">TinyML Real-Time Fall Monitor <span class="text-xs px-2 py-0.5 rounded bg-emerald-950 text-emerald-400 border border-emerald-800 font-mono">v5.9</span></h1>
                 <p class="text-[10px] text-slate-400 font-mono">RMIT Capstone S4143087 | Jacky LIN | Sup: Dr. Scottie Man</p>
             </div>
         </div>
@@ -44,16 +44,16 @@
                 </div>
             </div>
 
-            <!-- Emergency Contact & GPS Location Card -->
+            <!-- Caregiver Contact & GPS Location Card -->
             <div class="bg-slate-900 border border-slate-800 rounded-xl p-4 shadow-xl space-y-3">
-                <h2 class="text-xs font-mono text-slate-400 uppercase tracking-wider">Emergency Contact & GPS</h2>
+                <h2 class="text-xs font-mono text-slate-400 uppercase tracking-wider">Caregiver Contact & GPS</h2>
                 <div>
-                    <label class="block text-[10px] font-mono text-slate-400 mb-1 uppercase">Caregiver Phone Number:</label>
-                    <input id="input-caregiver-phone" type="tel" value="+61400000000" class="w-full bg-slate-950 text-slate-200 font-mono text-xs p-2 rounded border border-slate-800 focus:border-blue-500 focus:outline-none" placeholder="+61400000000">
+                    <label class="block text-[10px] font-mono text-slate-400 mb-1 uppercase">Preset Caregiver Phone Number:</label>
+                    <input id="input-caregiver-phone" type="tel" value="+61400000000" class="w-full bg-slate-950 text-emerald-400 font-mono font-bold text-xs p-2.5 rounded border border-slate-800 focus:border-blue-500 focus:outline-none" placeholder="+61400000000">
                 </div>
                 <div class="bg-slate-950 p-2.5 rounded-lg border border-slate-800/80 flex justify-between items-center">
                     <span class="text-[11px] text-slate-400 font-mono">📍 GPS Location:</span>
-                    <span id="gps-coords-val" class="text-[11px] font-mono text-emerald-400 font-bold">Acquiring...</span>
+                    <span id="gps-coords-val" class="text-[11px] font-mono text-amber-300 font-bold">Acquiring...</span>
                 </div>
             </div>
 
@@ -116,17 +116,14 @@
                     <button id="btn-clear-log" class="text-[10px] font-mono text-slate-500 hover:text-slate-300">Clear</button>
                 </div>
                 <div id="log-console" class="bg-slate-950 border border-slate-800 rounded-lg p-3 h-32 overflow-y-auto font-mono text-[11px] text-slate-400 space-y-1">
-                    <div>[SYSTEM] Portal initialized v5.6. Ready for BLE connection.</div>
+                    <div>[SYSTEM] Portal initialized v5.9. Aligned with v15 C++ firmware.</div>
                 </div>
             </div>
         </section>
 
     </main>
 
-    <!-- Hidden Export Button -->
-    <button id="btn-export-csv" class="hidden"></button>
-
-    <!-- Crisis Verification Modal (鎖定 Latch 邏輯，高亮醒目紅框，取消畫面抖動) -->
+    <!-- Crisis Verification Modal -->
     <div id="crisis-modal" class="fixed inset-0 bg-slate-950/90 backdrop-blur-md z-50 hidden flex items-center justify-center p-4">
         <div class="bg-rose-950 border-2 border-rose-500 rounded-2xl max-w-md w-full p-6 text-center shadow-2xl animate-pulse">
             <div class="text-5xl mb-3">🚨</div>
@@ -138,7 +135,7 @@
                 <div class="text-[10px] font-mono text-rose-300 uppercase">Seconds until SOS Emergency Dispatch</div>
                 
                 <div class="pt-2 border-t border-rose-900/50 text-[11px] font-mono text-slate-300 space-y-1 text-left">
-                    <div>📞 <span class="text-slate-400">Target Contact:</span> <span id="modal-caregiver-phone" class="text-emerald-400 font-bold">+61400000000</span></div>
+                    <div>📞 <span class="text-slate-400">Target Caregiver:</span> <span id="modal-caregiver-phone" class="text-emerald-400 font-bold">+61400000000</span></div>
                     <div>📍 <span class="text-slate-400">GPS Address:</span> <span id="modal-gps-coords" class="text-amber-300 font-bold">Acquiring...</span></div>
                 </div>
             </div>
@@ -279,7 +276,7 @@
                     optionalServices: [SERVICE_UUID]
                 });
 
-                // 🔴 監聽藍牙物理中斷事件 (如按了物理 RESET 或斷電)
+                // 🔴 監聽藍牙物理中斷事件 (例如按了物理 RESET 或斷電)
                 bleDevice.addEventListener('gattserverdisconnected', onDeviceDisconnected);
 
                 logEvent("🔗 Connecting to GATT Server...");
@@ -287,6 +284,10 @@
                 const service = await gattServer.getPrimaryService(SERVICE_UUID);
 
                 // Subscribe to Characteristics
+                const charFsm = await service.getCharacteristic(CHAR_FSM_UUID);
+                await charFsm.startNotifications();
+                charFsm.addEventListener('characteristicvaluechanged', handleFsmChange);
+
                 const charAvm = await service.getCharacteristic(CHAR_AVM_UUID);
                 await charAvm.startNotifications();
                 charAvm.addEventListener('characteristicvaluechanged', handleAvmChange);
@@ -303,7 +304,7 @@
                 await charRaw.startNotifications();
                 charRaw.addEventListener('characteristicvaluechanged', handleRawChange);
 
-                logEvent("✅ Web BLE Connected & Subscribed successfully!");
+                logEvent("✅ Web BLE Connected & Subscribed to 5 Characteristics successfully!");
                 btnConnect.innerHTML = "🟢 CONNECTED";
                 btnConnect.className = "bg-emerald-950 text-emerald-400 font-mono font-bold text-xs py-2 px-4 rounded border border-emerald-800 cursor-default";
                 statusDot.className = "w-3 h-3 rounded-full bg-emerald-500 animate-ping";
@@ -325,19 +326,38 @@
             stateText.className = "text-xl font-mono font-extrabold text-slate-400 uppercase";
             confidenceText.innerText = "Confidence: 0.0%";
 
-            // 🔴 關鍵：立刻清空倒計時定時器並關閉 Modal 警報視窗！
-            if (countdownInterval) clearInterval(countdownInterval);
-            crisisModal.classList.add('hidden');
+            dismissCrisisModal();
         }
 
+        // 🔴 FSM 狀態改變事件 (FFF1) -> 對照 v15 韌體：0:Standby, 1:Prefall, 2:Fall
+        function handleFsmChange(e) {
+            const fsmState = e.target.value.getUint8(0);
+            logEvent(`🛡️ Hardware FSM State Update: ${fsmState} (0:Standby, 1:Prefall, 2:Fall)`);
+            
+            if (fsmState === 0) {
+                // 硬體手動按了 D10 RESET 按鈕解除警報！(v15 韌體呼叫 resetToStandby 寫入 0)
+                // 實現與網頁 UI 的「或 (OR)」關係 -> 手體或網頁任意一端解除，兩端同時恢復！
+                logEvent("🔘 Hardware Reset Button (D10) Pressed on Wearable! Clearing alarm on Web UI.");
+                dismissCrisisModal();
+            } else if (fsmState === 2) {
+                // 硬體狀態機確認跌倒
+                triggerCrisisModal();
+            }
+        }
+
+        // 🔴 AVM 數據改變事件 (FFF2 Float32)
         function handleAvmChange(e) {
             const avm = e.target.value.getFloat32(0, true);
             avmValText.innerHTML = `${avm.toFixed(3)} <span class="text-xs text-slate-500">m/s²</span>`;
 
+            // 🔴 關鍵修正：必須使用 chartData.datasets.data 指向第一個數據集陣列！
             chartData.datasets.data.push(avm);
-            if (chartData.datasets.data.length > maxPoints) chartData.datasets.data.shift();
+            if (chartData.datasets.data.length > maxPoints) {
+                chartData.datasets.data.shift();
+            }
             avmChart.update();
 
+            // Recording Gate: 寫入 CSV 日誌陣列
             if (isRecordingActive) {
                 const activeStateName = classNames[currentWinnerClass] || "STATIC";
                 sessionLogs.push({
@@ -355,6 +375,7 @@
             }
         }
 
+        // 🔴 Class 分類結果改變事件 (FFF3 uint8_t 0-4)
         function handleClassChange(e) {
             currentWinnerClass = e.target.value.getUint8(0);
             const className = classNames[currentWinnerClass] || "UNKNOWN";
@@ -367,28 +388,32 @@
                 triggerCrisisModal();
             } else {
                 stateText.className = "text-xl font-mono font-extrabold text-emerald-400 uppercase";
-                // 🔴 注意：移除原本自動 dismiss 邏輯！跌倒後即使切回 STATIC，Modal 依然鎖定 Hold 住倒計時！
+                // 跌倒後受試者躺在地上靜止 (STATIC / Class 0)，Modal 保持物理鎖定 Hold 住！
+                // 解除只能靠：網頁 UI 點選 DISMISS，或硬體按下 D10 手動 RESET 按鈕 (FFF1 = 0)！
             }
         }
 
-        // 🔴 信心度 100% 準確解析 (C++ 發送的是 uint8_t 0-100)
+        // 🔴 信心度解析 (FFF4 uint8_t 0-100%) -> 對照 v15 韌體 (uint8_t)(winner_confidence * 100.0f)
         function handleConfChange(e) {
             currentConfidence = e.target.value.getUint8(0); // 直接讀取 1 byte uint8_t
             confidenceText.innerText = `Confidence: ${currentConfidence.toFixed(1)}%`;
         }
 
+        // 🔴 Raw 6軸 IMU 解析 (FFF5 24-byte float array)
         function handleRawChange(e) {
             const val = e.target.value;
-            latest_ax = val.getFloat32(0, true);
-            latest_ay = val.getFloat32(4, true);
-            latest_az = val.getFloat32(8, true);
-            latest_gx = val.getFloat32(12, true);
-            latest_gy = val.getFloat32(16, true);
-            latest_gz = val.getFloat32(20, true);
+            if (val.byteLength >= 24) {
+                latest_ax = val.getFloat32(0, true);
+                latest_ay = val.getFloat32(4, true);
+                latest_az = val.getFloat32(8, true);
+                latest_gx = val.getFloat32(12, true);
+                latest_gy = val.getFloat32(16, true);
+                latest_gz = val.getFloat32(20, true);
 
-            document.getElementById('raw-ax').innerText = latest_ax.toFixed(2);
-            document.getElementById('raw-ay').innerText = latest_ay.toFixed(2);
-            document.getElementById('raw-az').innerText = latest_az.toFixed(2);
+                document.getElementById('raw-ax').innerText = latest_ax.toFixed(2);
+                document.getElementById('raw-ay').innerText = latest_ay.toFixed(2);
+                document.getElementById('raw-az').innerText = latest_az.toFixed(2);
+            }
         }
 
         // Recording Gate Logic
@@ -446,7 +471,7 @@
             logEvent("💾 Clean CSV segment exported successfully!");
         }
 
-        // 🔴 Crisis Modal & Caregiver Phone / GPS Location Logic
+        // 🔴 Crisis Modal Logic
         function triggerCrisisModal() {
             const caregiverPhone = inputCaregiverPhone.value.trim() || "+61400000000";
             modalCaregiverPhone.innerText = caregiverPhone;
@@ -474,7 +499,7 @@
             logEvent("✅ Crisis alert DISMISSED. Restoring Standby state.");
         }
 
-        // 🔴 PC + Mobile SOS 按鈕處理邏輯 (結合 Caregiver 電話與可視化 GPS)
+        // 🔴 PC + Mobile SOS 按鈕處理邏輯 (帶 Caregiver 電話與 GPS 連結)
         btnSmsSos.addEventListener('click', () => {
             const caregiverPhone = inputCaregiverPhone.value.trim() || "+61400000000";
             const smsText = `EMERGENCY: Fall Crash Detected! User Jacky LIN needs immediate aid. Caregiver: ${caregiverPhone}. GPS Location: https://maps.google.com/?q=${userGeoCoords}`;
@@ -488,7 +513,7 @@
             // 打開 Google Maps 頁面 (兼顧 PC 端驗證)
             window.open(`https://maps.google.com/?q=${userGeoCoords}`, '_blank');
 
-            // 嘗試觸發手機原生 SMS 協議 (帶預設看護人號碼)
+            // 觸發手機原生 SMS 協議 (帶預設號碼)
             window.location.href = `sms:${caregiverPhone}?&body=${encodeURIComponent(smsText)}`;
         });
 
