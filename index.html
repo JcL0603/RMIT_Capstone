@@ -163,6 +163,42 @@
         const classNames = ["STATIC", "WALK", "STAIRS", "PRE-FALL", "FALL CRASH"];
         const classIcons = ["🛡️", "🚶", "🧗", "⚠️", "🚨"];
 
+// 🔴 Web Audio API 警報音效合成器 (免外部音檔)
+        let audioCtx = null;
+        let sirenOsc = null;
+        let sirenInterval = null;
+
+        function startWebSiren() {
+            // 由於使用者已經點擊過 "CONNECT BLE"，突破了瀏覽器禁止自動播放 (Autoplay) 的限制
+            if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            if (audioCtx.state === 'suspended') audioCtx.resume();
+
+            sirenOsc = audioCtx.createOscillator();
+            const gainNode = audioCtx.createGain();
+            sirenOsc.type = 'square';      // 方波產生刺耳的警示音
+            gainNode.gain.value = 0.15;    // 控制音量 (0.0 到 1.0)
+
+            sirenOsc.connect(gainNode);
+            gainNode.connect(audioCtx.destination);
+            sirenOsc.start();
+
+            let isHigh = true;
+            // 每 400ms 切換頻率，模擬救護車 960Hz / 700Hz 雙頻交替
+            sirenInterval = setInterval(() => {
+                sirenOsc.frequency.value = isHigh ? 960 : 700; 
+                isHigh = !isHigh;
+            }, 400);
+        }
+
+        function stopWebSiren() {
+            if (sirenInterval) clearInterval(sirenInterval);
+            if (sirenOsc) {
+                sirenOsc.stop();
+                sirenOsc.disconnect();
+                sirenOsc = null;
+            }
+        }
+		
         let bleDevice, gattServer;
         let isRecordingActive = false;
         let sessionLogs = [];
@@ -512,6 +548,8 @@
             countdownSeconds = 10;
             countdownTimer.innerText = countdownSeconds;
 
+			logEvent("🔊 啟動網頁端警報音效...");
+			startWebSiren();
             if (countdownInterval) clearInterval(countdownInterval);
             countdownInterval = setInterval(() => {
                 countdownSeconds--;
@@ -525,6 +563,7 @@
         }
 
         function dismissCrisisModal() {
+			stopWebSiren();
             if (countdownInterval) clearInterval(countdownInterval);
             crisisModal.classList.add('hidden');
             logEvent("✅ Crisis alert DISMISSED. Restoring Standby state.");
