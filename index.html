@@ -346,17 +346,16 @@
         }
 
         // 🔴 AVM 數據改變事件 (FFF2 Float32)
-        function handleAvmChange(e) {
-            const avm = e.target.value.getFloat32(0, true);
-            avmValText.innerHTML = `${avm.toFixed(3)} <span class="text-xs text-slate-500">m/s²</span>`;
+			function handleAvmChange(e) {
+				const avm = e.target.value.getFloat32(0, true);
+				avmValText.innerHTML = `${avm.toFixed(3)} <span class="text-xs text-slate-500">m/s²</span>`;
 
-            // 🔴 關鍵修正：必須使用 chartData.datasets.data 指向第一個數據集陣列！
-            chartData.datasets.data.push(avm);
-            if (chartData.datasets.data.length > maxPoints) {
-                chartData.datasets.data.shift();
-            }
+				// ✅ 修正：必須加上 [0] 指向第一個數據集陣列
+				chartData.datasets[0].data.push(avm);
+				if (chartData.datasets[0].data.length > maxPoints) {
+					chartData.datasets[0].data.shift();
+				}
             avmChart.update();
-
             // Recording Gate: 寫入 CSV 日誌陣列
             if (isRecordingActive) {
                 const activeStateName = classNames[currentWinnerClass] || "STATIC";
