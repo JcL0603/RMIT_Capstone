@@ -1,0 +1,722 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Jacky's Web BLE Fall Monitor v5.4</title>
+    <!-- Tailwind CSS for Modern High-Contrast Engineering UI -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @keyframes pulse-red {
+            0%, 100% { transform: scale(1); box-shadow: 0 0 20px rgba(239, 68, 68, 0.4); }
+            50% { transform: scale(1.05); box-shadow: 0 0 40px rgba(239, 68, 68, 0.9); }
+        }
+        .animate-pulse-red {
+            animation: pulse-red 1.2s infinite;
+        }
+        @keyframes flash-screen {
+            0%, 100% { background-color: rgb(3, 7, 18); }
+            50% { background-color: rgb(127, 29, 29); }
+        }
+        .critical-alert-bg {
+            animation: flash-screen 1s infinite;
+        }
+    </style>
+</head>
+<body id="body-bg" class="bg-gray-950 text-gray-100 min-h-screen flex flex-col justify-between font-sans transition-all duration-500 selection:bg-blue-500/30">
+
+    <!-- Header Navigation -->
+    <header class="bg-gray-900 p-4 shadow-md text-center border-b border-gray-800">
+        <h1 class="text-xl font-bold tracking-widest text-blue-400 font-mono">JACKY'S FALL TELEMETRY</h1>
+        <p class="text-[10px] text-gray-500 mt-1">Edge TinyML Web BLE Real-Time Monitor v5.4</p>
+    </header>
+
+    <!-- Main Content Area -->
+    <main class="flex-grow flex flex-col items-center justify-center p-4 space-y-4">
+        
+        <!-- Connection Status & Data Heartbeat -->
+        <div class="flex flex-col items-center space-y-1">
+            <span id="conn-state" class="px-4 py-1.5 rounded-full text-xs font-mono font-bold bg-red-500/20 text-red-400 border border-red-500/30">
+                DISCONNECTED
+            </span>
+            <!-- Heartbeat indicator (Visual proof of live transmission) -->
+            <div class="flex items-center space-x-2 text-[10px] text-gray-500 mt-1">
+                <span>BLE Rx:</span>
+                <span id="heartbeat-dot" class="w-2.5 h-2.5 rounded-full bg-gray-800 transition-all duration-100"></span>
+                <span id="packet-counter" class="font-mono">0 pkts</span>
+            </div>
+        </div>
+
+        <!-- 5-Class Dynamic SVG Icon Display -->
+        <div id="status-icon-container" class="flex items-center justify-center">
+            <div id="status-ring" class="w-40 h-40 rounded-full flex flex-col items-center justify-center border-8 border-green-500 bg-green-500/10 shadow-[0_0_40px_rgba(16,185,129,0.25)] transition-all duration-300">
+                <svg class="w-16 h-16 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"></path>
+                </svg>
+            </div>
+        </div>
+
+        <!-- Customizable Emergency Recipient Input -->
+        <div class="w-full max-w-sm bg-gray-900 border border-gray-800 rounded-2xl p-3 shadow-lg">
+            <p class="text-[9px] text-gray-500 uppercase tracking-widest text-center mb-2">SOS Target Configuration</p>
+            <div class="flex items-center space-x-2">
+                <span class="text-xs text-gray-400 font-mono">Recipient:</span>
+                <input id="phone-input" type="text" value="+85267347740" class="flex-grow bg-gray-950 border border-gray-800 rounded px-2.5 py-1 text-xs font-mono text-blue-400 focus:outline-none focus:border-blue-500">
+            </div>
+        </div>
+
+        <!-- Live Metrics Section -->
+        <div class="grid grid-cols-3 gap-2 w-full max-w-sm">
+            <!-- Box 1: Signal Vector (AVM) -->
+            <div class="bg-gray-900 border border-gray-800 rounded-xl p-2.5 text-center shadow-lg">
+                <p class="text-[8px] text-gray-500 uppercase tracking-widest mb-1">Signal (AVM)</p>
+                <p class="text-sm font-mono font-bold text-blue-400" id="avm-val">0.000 <span class="text-[10px] text-gray-500">m/s²</span></p>
+            </div>
+            
+            <!-- Box 2: Active Classifier (Class Name Only) -->
+            <div class="bg-gray-900 border border-gray-800 rounded-xl p-2.5 text-center shadow-lg">
+                <p class="text-[8px] text-gray-500 uppercase tracking-widest mb-1">Classifier</p>
+                <p class="text-sm font-bold text-green-500 truncate mt-0.5" id="model-class">STATIC</p>
+            </div>
+
+            <!-- Box 3: Classifier Confidence (0.XX Float format ONLY) -->
+            <div class="bg-gray-900 border border-gray-800 rounded-xl p-2.5 text-center shadow-lg flex flex-col justify-between">
+                <p class="text-[8px] text-gray-500 uppercase tracking-widest mb-1">Confidence</p>
+                <div class="text-center mt-0.5">
+                    <span class="text-sm font-mono font-bold text-green-400" id="model-conf">1.00</span>
+                </div>
+                <!-- Mini neon progress bar -->
+                <div class="w-full bg-gray-950 rounded-full h-1 mt-1 border border-gray-800">
+                    <div id="model-conf-bar" class="bg-green-500 h-1 rounded-full transition-all duration-150" style="width: 100%"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Real-Time AVM Line Waveform Plotter -->
+        <div class="w-full max-w-sm bg-gray-900 border border-gray-800 rounded-2xl p-3 shadow-lg">
+            <p class="text-[9px] text-gray-500 uppercase tracking-widest mb-2 text-center">Real-Time Waveform Plotter (5Hz)</p>
+            <canvas id="avm-chart" class="w-full h-20 bg-gray-950 rounded-lg"></canvas>
+        </div>
+
+        <!-- 10-Second Crisis Countdown Card -->
+        <div id="countdown-card" class="hidden w-full max-w-sm bg-red-950/30 border-2 border-red-500/50 rounded-2xl p-4 text-center space-y-3 animate-pulse-red">
+            <h3 class="text-red-500 font-bold text-xs tracking-wider">🚨 CRISIS VERIFICATION COUNTDOWN 🚨</h3>
+            <p class="text-xs text-gray-300">
+                Severe Fall Detected! SMS dispatch in <span id="countdown-timer" class="text-lg font-mono font-bold text-red-500">10</span> seconds.<br>
+                Press the physical wristband button or click below to cancel.
+            </p>
+            <button id="btn-cancel-sms" class="bg-gray-800 hover:bg-gray-700 text-white text-xs font-bold px-4 py-2 rounded-lg transition-all border border-gray-700">
+                DISMISS ALERT (FALSE ALARM)
+            </button>
+        </div>
+
+        <!-- Scrolling System Event Logger & CSV Download Panel -->
+        <div class="w-full max-w-sm bg-gray-900 border border-gray-800 rounded-2xl p-3.5 shadow-lg space-y-3">
+            <p class="text-[9px] text-gray-500 uppercase tracking-widest text-center">System Telemetry Logger</p>
+            <div id="event-log" class="h-16 overflow-y-auto bg-gray-950 rounded-lg p-2 font-mono text-[9px] text-gray-400 space-y-1">
+                <div class="text-gray-600">[System initialized] Ready for pairing...</div>
+            </div>
+            <!-- CSV Download Button -->
+            <button id="btn-export-csv" class="w-full bg-slate-800 hover:bg-slate-700 active:bg-slate-900 text-blue-400 font-mono font-bold text-[10px] py-2 rounded border border-gray-700 tracking-wider transition-all">
+                📥 EXPORT 6-AXIS DATASET TO CSV
+            </button>
+        </div>
+
+        <!-- Fall History & Logging -->
+        <div id="history-card" class="w-full max-w-sm bg-gray-900 border border-gray-800 rounded-2xl p-2.5 shadow-lg text-center">
+            <p id="fall-timestamp" class="text-[10px] font-mono text-gray-500">No anomalous events recorded</p>
+        </div>
+
+        <!-- Control Action Button -->
+        <button id="btn-scan" class="bg-blue-600 hover:bg-blue-500 active:bg-blue-700 text-white text-xs font-bold px-8 py-3 rounded-full shadow-lg hover:shadow-blue-500/30 transition-all flex items-center space-x-2">
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
+            </svg>
+            <span>DISCOVER WEARABLE SENSOR</span>
+        </button>
+    </main>
+
+    <!-- 🌟 iOS FAILSAFE: Telemetry Copy-Paste Modal with Raw 6-Axis Data 🌟 -->
+    <div id="csv-modal" class="hidden fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 z-50 transition-all duration-300">
+        <div class="bg-gray-900 border border-gray-800 rounded-2xl w-full max-w-sm p-4 flex flex-col space-y-3 shadow-2xl">
+            <h3 class="text-blue-400 font-mono font-bold text-xs tracking-widest text-center font-mono">📥 DATASET ACQUISITION</h3>
+            <p class="text-[10px] text-gray-400 text-center leading-relaxed">
+                iOS restricts direct downloads in-app. Click below to copy the full 10-column CSV dataset directly to your clipboard!
+            </p>
+            <textarea id="csv-text-area" class="w-full h-36 bg-gray-950 border border-gray-800 rounded-lg p-2 font-mono text-[9px] text-blue-300 focus:outline-none focus:border-blue-500" readonly></textarea>
+            <div class="flex space-x-2">
+                <button id="btn-copy-csv" class="flex-1 bg-blue-600 hover:bg-blue-500 text-white font-mono font-bold text-[10px] py-2 rounded-lg transition-all">
+                    COPY TO CLIPBOARD
+                </button>
+                <button id="btn-close-modal" class="flex-1 bg-gray-800 hover:bg-gray-700 text-gray-300 font-mono font-bold text-[10px] py-2 rounded-lg transition-all border border-gray-700">
+                    CLOSE WINDOW
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Footer -->
+    <footer class="text-center p-3 text-[9px] text-gray-600 bg-gray-950 border-t border-gray-900 font-mono">
+        Jacky LIN | RMIT Capstone Project 2026
+    </footer>
+
+    <!-- Web BLE Core Controller -->
+    <script>
+        const serviceUuid = "0000fff0-0000-1000-8000-00805f9b34fb"; // FFF0
+        const stateCharUuid = "0000fff1-0000-1000-8000-00805f9b34fb"; // FFF1: FSM State (0:Standby, 1:Prefall, 2:Fall)
+        const avmCharUuid = "0000fff2-0000-1000-8000-00805f9b34fb"; // FFF2: AVM Float
+        const classCharUuid = "0000fff3-0000-1000-8000-00805f9b34fb"; // FFF3: Winner Class (0:STATIC, 1:WALK, 2:STAIRS, 3:PRE-FALL, 4:FALL)
+        const confCharUuid = "0000fff4-0000-1000-8000-00805f9b34fb"; // FFF4: Winner Confidence % (0-100)
+        const imuCharUuid = "0000fff5-0000-1000-8000-00805f9b34fb"; // FFF5: Raw IMU Data (6x Float32 Array = 24 bytes)
+
+        // Default Recipient Configured
+        const emergencyContact = "+85267347740";
+
+        let device = null;
+        let audioCtx = null;
+        let smsTimer = null;
+        let countdownVal = 10;
+        let countdownInterval = null;
+        let isAlertActive = false;
+        let packetCount = 0;
+
+        // Session CSV Logging Array
+        let sessionLogs = [];
+
+        // Global IMU alignment buffer
+        let latest_ax = 0.0, latest_ay = 0.0, latest_az = 0.0;
+        let latest_gx = 0.0, latest_gy = 0.0, latest_gz = 0.0;
+
+        // Dynamic State Storage
+        let currentWinnerClass = 0;
+        let currentConfidence = 100;
+        let fff3Supported = false; // Cache fallback mechanism
+
+        // Complete SVGs with full parent elements to bypass WebKit SVG Redraw Bug!
+        const classSVGs = {
+            0: `<div id="status-ring" class="w-40 h-40 rounded-full flex flex-col items-center justify-center border-8 border-green-500 bg-green-500/10 shadow-[0_0_40px_rgba(16,185,129,0.25)] transition-all duration-300">
+                    <svg class="w-16 h-16 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"></path>
+                    </svg>
+                    <span class="text-xs font-bold text-green-500 mt-2 tracking-widest font-mono">STANDBY</span>
+                </div>`,
+            1: `<div id="status-ring" class="w-40 h-40 rounded-full flex flex-col items-center justify-center border-8 border-blue-500 bg-blue-500/10 shadow-[0_0_40px_rgba(59,130,246,0.25)] transition-all duration-300">
+                    <svg class="w-16 h-16 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <circle cx="12" cy="4" r="2" fill="currentColor"/>
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 9.5l-2-2-1.5 2.5-2.5-1M10 14.5l-1.5 4.5M13.5 14.5l2 4.5M12 9.5v5"/>
+                    </svg>
+                    <span class="text-xs font-bold text-blue-500 mt-2 tracking-widest font-mono">WALKING</span>
+                </div>`,
+            2: `<div id="status-ring" class="w-40 h-40 rounded-full flex flex-col items-center justify-center border-8 border-indigo-500 bg-indigo-500/10 shadow-[0_0_40px_rgba(99,102,241,0.25)] transition-all duration-300">
+                    <svg class="w-16 h-16 text-indigo-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21h-4v-4h-4v-4H7V9H3V3h3"></path>
+                    </svg>
+                    <span class="text-xs font-bold text-indigo-500 mt-2 tracking-widest font-mono">STAIRS</span>
+                </div>`,
+            3: `<div id="status-ring" class="w-40 h-40 rounded-full flex flex-col items-center justify-center border-8 border-yellow-500 bg-yellow-500/10 shadow-[0_0_40px_rgba(245,158,11,0.25)] transition-all duration-300">
+                    <svg class="w-16 h-16 text-yellow-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path>
+                    </svg>
+                    <span class="text-xs font-bold text-yellow-500 mt-2 tracking-widest font-mono">PRE-FALL</span>
+                </div>`,
+            4: `<div id="status-ring" class="w-40 h-40 rounded-full flex flex-col items-center justify-center border-8 border-red-600 bg-red-600/10 shadow-[0_0_50px_rgba(220,38,38,0.5)] animate-bounce transition-all duration-300">
+                    <svg class="w-16 h-16 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"></path>
+                    </svg>
+                    <span class="text-xs font-bold text-red-500 mt-2 tracking-widest font-mono">CRITICAL</span>
+                </div>`
+        };
+
+        const classNames = {
+            0: "STATIC",
+            1: "WALK",
+            2: "STAIRS",
+            3: "PRE-FALL",
+            4: "FALL CRASH"
+        };
+
+        const classColors = {
+            0: "text-green-500",
+            1: "text-blue-500",
+            2: "text-indigo-500",
+            3: "text-yellow-500",
+            4: "text-red-500"
+        };
+
+        // AVM Chart Variables
+        let avmHistory = [];
+        const maxPoints = 50;
+
+        // Elements
+        const bodyBg = document.getElementById('body-bg');
+        const connStateSpan = document.getElementById('conn-state');
+        const iconContainer = document.getElementById('status-icon-container');
+        const avmValText = document.getElementById('avm-val');
+        const modelClassText = document.getElementById('model-class');
+        const modelConfText = document.getElementById('model-conf');
+        const modelConfBar = document.getElementById('model-conf-bar');
+        const btnScan = document.getElementById('btn-scan');
+        const countdownCard = document.getElementById('countdown-card');
+        const countdownTimerSpan = document.getElementById('countdown-timer');
+        const btnCancelSms = document.getElementById('btn-cancel-sms');
+        const timestampText = document.getElementById('fall-timestamp');
+        const eventLog = document.getElementById('event-log');
+        const btnExportCsv = document.getElementById('btn-export-csv');
+
+        // Modal Elements
+        const csvModal = document.getElementById('csv-modal');
+        const csvTextArea = document.getElementById('csv-text-area');
+        const btnCopyCsv = document.getElementById('btn-copy-csv');
+        const btnCloseModal = document.getElementById('btn-close-modal');
+        
+        // Canvas Declarations
+        const canvas = document.getElementById('avm-chart');
+        const ctx = canvas.getContext('2d');
+
+        function setupCanvas() {
+            canvas.width = canvas.parentElement.clientWidth - 24;
+            canvas.height = 80;
+            drawChart();
+        }
+        window.addEventListener('resize', setupCanvas);
+
+        function logEvent(msg) {
+            const entry = document.createElement('div');
+            const time = new Date().toLocaleTimeString();
+            entry.innerHTML = `<span class="text-blue-500 font-bold">[${time}]</span> ${msg}`;
+            eventLog.appendChild(entry);
+            eventLog.scrollTop = eventLog.scrollHeight;
+        }
+
+        function triggerHeartbeat() {
+            packetCount++;
+            document.getElementById('packet-counter').innerText = `${packetCount} pkts`;
+            const dot = document.getElementById('heartbeat-dot');
+            dot.className = "w-2.5 h-2.5 rounded-full bg-green-400 shadow-[0_0_8px_rgba(74,222,128,0.7)]";
+            setTimeout(() => {
+                dot.className = "w-2.5 h-2.5 rounded-full bg-green-950";
+            }, 100);
+        }
+
+        function drawChart() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            ctx.strokeStyle = '#1e293b';
+            ctx.lineWidth = 1;
+            for(let i = 1; i < 4; i++) {
+                let y = (canvas.height / 4) * i;
+                ctx.beginPath();
+                ctx.moveTo(0, y);
+                ctx.lineTo(canvas.width, y);
+                ctx.stroke();
+            }
+
+            if(avmHistory.length === 0) return;
+
+            ctx.strokeStyle = '#38bdf8';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            const sliceWidth = canvas.width / (maxPoints - 1);
+            let x = 0;
+
+            for(let i = 0; i < avmHistory.length; i++) {
+                const normalizedAVM = avmHistory[i];
+                const y = canvas.height - ((normalizedAVM / 30) * canvas.height);
+                if(i === 0) ctx.moveTo(x, y);
+                else ctx.lineTo(x, y);
+                x += sliceWidth;
+            }
+            ctx.stroke();
+        }
+
+        function initAudio() {
+            if (!audioCtx) {
+                audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            }
+        }
+
+        let sirenInterval = null;
+        function startSiren() {
+            initAudio();
+            if (sirenInterval) return;
+            sirenInterval = setInterval(() => {
+                let osc = audioCtx.createOscillator();
+                let gain = audioCtx.createGain();
+                osc.connect(gain);
+                gain.connect(audioCtx.destination);
+                osc.type = 'sawtooth';
+                
+                const now = audioCtx.currentTime;
+                osc.frequency.setValueAtTime(900, now);
+                osc.frequency.linearRampToValueAtTime(1300, now + 0.3);
+                gain.gain.setValueAtTime(0.4, now);
+                gain.gain.linearRampToValueAtTime(0.01, now + 0.3);
+                
+                osc.start();
+                osc.stop(now + 0.35);
+            }, 400);
+        }
+
+        function stopSiren() {
+            if (sirenInterval) {
+                clearInterval(sirenInterval);
+                sirenInterval = null;
+            }
+        }
+
+        // Web BLE Scan Discovery
+        btnScan.addEventListener('click', async () => {
+            initAudio();
+            setupCanvas();
+            logEvent("Starting BLE Scan discovery...");
+            try {
+                connStateSpan.className = "px-4 py-1.5 rounded-full text-xs font-mono font-bold bg-yellow-500/20 text-yellow-400 border border-yellow-500/30";
+                connStateSpan.innerText = "SCANNING DEVICES...";
+
+                device = await navigator.bluetooth.requestDevice({
+                    acceptAllDevices: true,
+                    optionalServices: [serviceUuid]
+                });
+
+                connStateSpan.innerText = `CONNECTING: ${device.name || "SENSOR"}...`;
+                logEvent(`Connecting to: ${device.name || "Unnamed Wearable"}`);
+
+                const server = await device.gatt.connect();
+                connStateSpan.className = "px-4 py-1.5 rounded-full text-xs font-mono font-bold bg-green-500/20 text-green-400 border border-green-500/30";
+                connStateSpan.innerText = "CONNECTED";
+                logEvent("GATT Server Connection Established successfully! ✅");
+
+                device.addEventListener('gattserverdisconnected', onDisconnected);
+
+                const service = await server.getPrimaryService(serviceUuid);
+
+                // 🔔 FFF1 Characteristic Subscription (FSM State Machine Control)
+                const stateChar = await service.getCharacteristic(stateCharUuid);
+                await stateChar.startNotifications();
+                stateChar.addEventListener('characteristicvaluechanged', (e) => {
+                    const fsmState = e.target.value.getUint8(0);
+                    handleFsmStateChange(fsmState);
+                });
+
+                // 🔔 [v14] FFF5 Characteristic Subscription (Raw 6-Axis Float Array)
+                try {
+                    const imuChar = await service.getCharacteristic(imuCharUuid);
+                    await imuChar.startNotifications();
+                    let firstImuPacket = true;
+                    imuChar.addEventListener('characteristicvaluechanged', (e) => {
+                        const val = e.target.value; // DataView
+                        
+                        // Parse 6 floats (Little Endian, Float32)
+                        latest_ax = val.getFloat32(0, true);
+                        latest_ay = val.getFloat32(4, true);
+                        latest_az = val.getFloat32(8, true);
+                        latest_gx = val.getFloat32(12, true);
+                        latest_gy = val.getFloat32(16, true);
+                        latest_gz = val.getFloat32(20, true);
+
+                        // LOG EVENT ONLY ONCE: Proves FFF5 link is active!
+                        if (firstImuPacket) {
+                            firstImuPacket = false;
+                            logEvent("Successfully receiving raw 6-axis data on FFF5! ✅");
+                        }
+                    });
+                    logEvent("Found 6-axis IMU characteristic FFF5, waiting for raw data...");
+                } catch (e) {
+                    logEvent("Warning: FFF5 raw IMU characteristic not found on wristband.");
+                }
+
+                // 🔔 FFF2 Characteristic Subscription (AVM Waveform Telemetry)
+                const avmChar = await service.getCharacteristic(avmCharUuid);
+                await avmChar.startNotifications();
+                avmChar.addEventListener('characteristicvaluechanged', (e) => {
+                    const val = e.target.value;
+                    const avm = val.getFloat32(0, true);
+                    avmValText.innerHTML = `${avm.toFixed(3)} <span class="text-xs text-gray-500">m/s²</span>`;
+                    
+                    triggerHeartbeat();
+
+                    // Push AVM to history chart
+                    avmHistory.push(avm);
+                    if(avmHistory.length > maxPoints) avmHistory.shift();
+                    drawChart();
+
+                    // ALIGNED 5Hz SNAPSHOT LOGGING: Packs Timestamp, raw 6-axis IMU, AVM, and AI states
+                    const activeStateName = classNames[currentWinnerClass] || "STATIC";
+                    sessionLogs.push({
+                        time: new Date().toLocaleTimeString(),
+                        ax: latest_ax.toFixed(4),
+                        ay: latest_ay.toFixed(4),
+                        az: latest_az.toFixed(4),
+                        gx: latest_gx.toFixed(2),
+                        gy: latest_gy.toFixed(2),
+                        gz: latest_gz.toFixed(2),
+                        avm: avm.toFixed(4),
+                        classification: activeStateName,
+                        confidence: (currentConfidence / 100.0).toFixed(2)
+                    });
+                });
+
+                // Reset fallback state
+                fff3Supported = false;
+
+                // 🔔 [v13] FFF3 Characteristic Subscription (Active Classifier Class Index)
+                try {
+                    const classChar = await service.getCharacteristic(classCharUuid);
+                    await classChar.startNotifications();
+                    classChar.addEventListener('characteristicvaluechanged', (e) => {
+                        const classIdx = e.target.value.getUint8(0);
+                        currentWinnerClass = classIdx;
+                        fff3Supported = true;
+                        renderTelemetryUI();
+                    });
+                    logEvent("Subscribed to 5-Class telemetry characteristic FFF3!");
+                } catch (e) {
+                    logEvent("Warning: FFF3 not found. Falling back to state-based FSM mode.");
+                }
+
+                // 🔔 [v13] FFF4 Characteristic Subscription (Active Classifier Confidence %)
+                try {
+                    const confChar = await service.getCharacteristic(confCharUuid);
+                    await confChar.startNotifications();
+                    confChar.addEventListener('characteristicvaluechanged', (e) => {
+                        const confVal = e.target.value.getUint8(0);
+                        currentConfidence = confVal;
+                        renderTelemetryUI();
+                    });
+                    logEvent("Subscribed to Confidence telemetry characteristic FFF4!");
+                } catch (e) {
+                    console.log("FFF4 characteristic omitted.");
+                }
+
+            } catch (err) {
+                console.error(err);
+                connStateSpan.className = "px-4 py-1.5 rounded-full text-xs font-mono font-bold bg-red-500/20 text-red-400 border border-red-500/30";
+                connStateSpan.innerText = "ERROR";
+                logEvent(`Error during pairing: ${err.message || err}`);
+            }
+        });
+
+        function onDisconnected() {
+            connStateSpan.className = "px-4 py-1.5 rounded-full text-xs font-mono font-bold bg-red-500/20 text-red-400 border border-red-500/30";
+            connStateSpan.innerText = "DISCONNECTED";
+            logEvent("BLE Connection lost. Resetting panel state...");
+            handleFsmStateChange(0); // Reset UI to Standby
+            stopSiren();
+            cancelSmsTimer();
+        }
+
+        function cancelSmsTimer() {
+            if (smsTimer) { clearTimeout(smsTimer); smsTimer = null; }
+            if (countdownInterval) { clearInterval(countdownInterval); countdownInterval = null; }
+            countdownCard.classList.add('hidden');
+            bodyBg.className = "bg-gray-950 text-gray-100 min-h-screen flex flex-col justify-between font-sans transition-all duration-500 selection:bg-blue-500/30";
+            countdownVal = 10;
+        }
+
+        btnCancelSms.addEventListener('click', () => {
+            logEvent("User locally dismissed the alert. System restored to standby.");
+            cancelSmsTimer();
+            handleFsmStateChange(0);
+        });
+
+        // Handles FFF1 FSM States strictly
+        function handleFsmStateChange(fsmState) {
+            // Dual-mode fallback configuration
+            if (!fff3Supported) {
+                if (fsmState === 0) {
+                    currentWinnerClass = 0; // STATIC fallback
+                    currentConfidence = 100;
+                } else if (fsmState === 1) {
+                    currentWinnerClass = 3; // PRE-FALL fallback
+                    currentConfidence = 100;
+                } else if (fsmState === 2) {
+                    currentWinnerClass = 4; // FALL fallback
+                    currentConfidence = 100;
+                }
+                renderTelemetryUI();
+            }
+
+            if (fsmState === 0) {
+                stopSiren();
+                cancelSmsTimer();
+                isAlertActive = false;
+                renderTelemetryUI();
+            } 
+            else if (fsmState === 1) {
+                cancelSmsTimer();
+                logEvent("Prefall critical signal captured! Pulsing wristband haptics...");
+                if (navigator.vibrate) { navigator.vibrate(200); }
+            } 
+            else if (fsmState === 2) {
+                if (isAlertActive) return;
+                isAlertActive = true;
+
+                startSiren();
+                bodyBg.className = "critical-alert-bg text-gray-100 min-h-screen flex flex-col justify-between font-sans transition-all duration-500 selection:bg-blue-500/30";
+                if (navigator.vibrate) { navigator.vibrate(); }
+
+                const fallTime = new Date().toLocaleTimeString();
+                timestampText.innerText = `FALL OCCURRED AT: ${fallTime}`;
+                timestampText.className = "text-xs font-mono font-bold text-red-400";
+                logEvent(`🚨 CRITICAL ACCIDENT: Fall detected by 1D-CNN at ${fallTime}!`);
+
+                startSmsVerificationCountdown();
+            }
+        }
+
+        // Renders the active 5-class UI telemetry dynamically (Resolves [object Object] rendering bug ✅)
+        function renderTelemetryUI() {
+            const className = classNames[currentWinnerClass] !== undefined ? classNames[currentWinnerClass] : "STATIC";
+            const classColor = classColors[currentWinnerClass] !== undefined ? classColors[currentWinnerClass] : "text-green-500";
+            const confidenceFloat = (currentConfidence / 100.0).toFixed(2);
+
+            // 🟢 CRITICAL BUGFIX: Ensure we ONLY write a specific string to innerHTML, never the parent object!
+            if (!isAlertActive) {
+                iconContainer.innerHTML = classSVGs[currentWinnerClass] !== undefined ? classSVGs[currentWinnerClass] : classSVGs[0];
+            } else {
+                // If fall alert is active, force render the bouncing Critical Fall Heartbeat (Index 4 is Fall Crash)
+                iconContainer.innerHTML = classSVGs[4]; 
+            }
+
+            // Separated metric rendering
+            modelClassText.innerText = className; 
+            modelClassText.className = `text-sm font-bold ${classColor}`;
+
+            modelConfText.innerText = confidenceFloat; 
+            modelConfText.className = `text-sm font-mono font-bold ${classColor}`;
+            
+            // Render neon gauge progress bar width
+            modelConfBar.style.width = `${currentConfidence}%`;
+            
+            // Adjust bar colors dynamically to match classes
+            modelConfBar.className = "h-1 rounded-full transition-all duration-150";
+            if (currentWinnerClass === 0) modelConfBar.classList.add("bg-green-500");
+            else if (currentWinnerClass === 1) modelConfBar.classList.add("bg-blue-500");
+            else if (currentWinnerClass === 2) modelConfBar.classList.add("bg-indigo-500");
+            else if (currentWinnerClass === 3) modelConfBar.classList.add("bg-yellow-500");
+            else if (currentWinnerClass === 4) modelConfBar.classList.add("bg-red-500");
+        }
+
+        function startSmsVerificationCountdown() {
+            cancelSmsTimer();
+            
+            countdownCard.classList.remove('hidden');
+            countdownVal = 10;
+            countdownTimerSpan.innerText = countdownVal;
+
+            countdownInterval = setInterval(() => {
+                countdownVal--;
+                countdownTimerSpan.innerText = countdownVal;
+                
+                if (navigator.vibrate) { navigator.vibrate(100); }
+                logEvent(`Countdown ticking: ${countdownVal}s left`);
+
+                if (audioCtx) {
+                    let tick = audioCtx.createOscillator();
+                    let tickGain = audioCtx.createGain();
+                    tick.connect(tickGain);
+                    tickGain.connect(audioCtx.destination);
+                    tick.frequency.setValueAtTime(1400, audioCtx.currentTime);
+                    tickGain.gain.setValueAtTime(0.08, audioCtx.currentTime);
+                    tick.start();
+                    tick.stop(audioCtx.currentTime + 0.04);
+                }
+
+                if (countdownVal <= 0) {
+                    clearInterval(countdownInterval);
+                }
+            }, 1000);
+
+            const targetPhone = document.getElementById('phone-input').value.trim() || emergencyContact;
+
+            smsTimer = setTimeout(() => {
+                triggerEmergencySms(targetPhone);
+            }, 10000);
+        }
+
+        function triggerEmergencySms(phoneNum) {
+            countdownCard.classList.add('hidden');
+            bodyBg.className = "bg-gray-950 text-gray-100 min-h-screen flex flex-col justify-between font-sans transition-all duration-500 selection:bg-blue-500/30";
+            
+            logEvent(`Timeout expired! Dispatching emergency geolocation to: ${phoneNum}`);
+
+            if (navigator.geolocation) {
+                navigator.geolocation.getCurrentPosition((pos) => {
+                    const lat = pos.coords.latitude;
+                    const lon = pos.coords.longitude;
+                    const mapUrl = `https://www.google.com/maps/search/?api=1&query=${lat},${lon}`;
+                    const msg = `[CRITICAL ALERT] Fall Detected! Jacky did not respond. Geolocation: ${mapUrl}`;
+                    
+                    window.location.href = `sms:${phoneNum}&body=${encodeURIComponent(msg)}`;
+                }, (err) => {
+                    const fallbackMsg = `[CRITICAL ALERT] Fall Detected! Jacky did not respond. (GPS coordinate fetch failed)`;
+                    window.location.href = `sms:${phoneNum}&body=${encodeURIComponent(fallbackMsg)}`;
+                }, { enableHighAccuracy: true });
+            } else {
+                const fallbackMsg = `[CRITICAL ALERT] Fall Detected! Jacky did not respond.`;
+                window.location.href = `sms:${phoneNum}&body=${encodeURIComponent(fallbackMsg)}`;
+            }
+        }
+
+        // CSV Exporter
+        btnExportCsv.addEventListener('click', () => {
+            if (sessionLogs.length === 0) {
+                alert("No IMU data captured in this session yet! Connect the device first.");
+                return;
+            }
+            
+            // STRICT 10-COLUMN DATA STRUCTURE matching your academic requirement
+            let csvContent = "Timestamp,AX,AY,AZ,GX,GY,GZ,AVM,Classifier,Confidence\n";
+            sessionLogs.forEach(row => {
+                csvContent += `"${row.time}",${row.ax},${row.ay},${row.az},${row.gx},${row.gy},${row.gz},${row.avm},"${row.classification}",${row.confidence}\n`;
+            });
+            
+            // Populate text area for manual copy-paste failsafe
+            csvTextArea.value = csvContent;
+            csvModal.classList.remove('hidden');
+            logEvent("6-axis CSV dataset compiled successfully!");
+
+            // Fallback: Automatic direct file download (for PC or open Safari environments)
+            try {
+                const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+                const url = URL.createObjectURL(blob);
+                const link = document.createElement("a");
+                link.setAttribute("href", url);
+                const timestamp = new Date().toISOString().slice(0,10);
+                link.setAttribute("download", `Jacky_6Axis_Dataset_${timestamp}.csv`);
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+                URL.revokeObjectURL(url);
+            } catch (e) {
+                console.log("Direct download blocked by local sandboxed environment.");
+            }
+        });
+
+        // Copy Modal Actions
+        btnCopyCsv.addEventListener('click', () => {
+            csvTextArea.select();
+            csvTextArea.setSelectionRange(0, 99999); // Mobile compatibility selector
+            
+            try {
+                navigator.clipboard.writeText(csvTextArea.value);
+                btnCopyCsv.innerText = "DATA COPIED SUCCESSFULLY! ✅";
+                btnCopyCsv.className = "flex-1 bg-green-600 text-white font-mono font-bold text-[10px] py-2 rounded-lg transition-all shadow-[0_0_15px_rgba(74,222,128,0.4)]";
+                
+                if (navigator.vibrate) { navigator.vibrate(100); }
+                logEvent("6-axis dataset copied to clipboard successfully!");
+
+                setTimeout(() => {
+                    btnCopyCsv.innerText = "COPY TO CLIPBOARD";
+                    btnCopyCsv.className = "flex-1 bg-blue-600 hover:bg-blue-500 text-white font-mono font-bold text-[10px] py-2 rounded-lg transition-all";
+                }, 2000);
+            } catch (err) {
+                alert("Auto-copy blocked. Please select and copy the text area content manually.");
+            }
+        });
+
+        btnCloseModal.addEventListener('click', () => {
+            csvModal.classList.add('hidden');
+        });
+    </script>
+</body>
+</html>

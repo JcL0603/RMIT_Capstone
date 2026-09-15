@@ -127,6 +127,9 @@ bool sirenToggle = false;
 BLEService fallService("FFF0");
 BLEUnsignedCharCharacteristic fallStateChar("FFF1", BLERead | BLENotify); // 0:Standby, 1:Prefall, 2:Fall
 BLEFloatCharacteristic bleAvmChar("FFF2", BLERead | BLENotify);          // Wireless real-time AVM transmission
+BLEUnsignedCharCharacteristic bleWinnerClassChar("FFF3", BLERead | BLENotify); // [v13] Active class index (0-4)
+BLEUnsignedCharCharacteristic bleWinnerConfChar("FFF4", BLERead | BLENotify);  // [v13] Confidence percentage (0-100%)
+BLECharacteristic bleImuChar("FFF5", BLERead | BLENotify, 24); // [v14] Raw 6-axis IMU data array (24 bytes)
 
 // ==================== 6. Function Prototypes ====================
 void readSensorsAndBuffer();
@@ -166,7 +169,7 @@ void setup() {
     #if MONITOR_MODE == 0
     if (Serial) {
         Serial.println("=================================================");
-        Serial.println("  EEET2450 Capstone Fall Monitor - TinyML v6.0-Fixed-v12 ");
+        Serial.println("  EEET2450 Capstone Fall Monitor - TinyML v6.0-Fixed-v13 ");
         Serial.println("  Inference Strategy: 12.5Hz Continuous Active CNN  ");
         Serial.println("  Filters: Advanced Temporal Low-G Safeguards       ");
         Serial.println("  Hardware: Arduino Nano 33 BLE Sense Rev2 + PM11   ");
@@ -202,17 +205,24 @@ void setup() {
         }
     } else {
         // Config advertisement payload
-        BLE.setLocalName("Jacky_FallMonitor");
+        BLE.setLocalName("Jacky_FallData");
         BLE.setAdvertisedService(fallService);
         
         // Bind characteristics
         fallService.addCharacteristic(fallStateChar);
         fallService.addCharacteristic(bleAvmChar);
+        fallService.addCharacteristic(bleWinnerClassChar); // [v13]
+        fallService.addCharacteristic(bleWinnerConfChar);  // [v13]
+        fallService.addCharacteristic(bleImuChar);         // [v14]
         BLE.addService(fallService);
         
         // Initial values
         fallStateChar.writeValue(0); // Standby
         bleAvmChar.writeValue(0.0);
+        bleWinnerClassChar.writeValue(0); // [v13] Default: STATIC (0)
+        bleWinnerConfChar.writeValue(0);  // [v13] Default: 0%
+        float zero_imu[6] = {0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f};
+        bleImuChar.writeValue((const uint8_t*)zero_imu, 24); // [v14]
         
         // Begin advertising
         BLE.advertise();
@@ -285,6 +295,10 @@ void readSensorsAndBuffer() {
         if (ble_telemetry_decimator >= 5) {
             ble_telemetry_decimator = 0;
             bleAvmChar.writeValue(current_avm);
+            
+            // [v14] Write raw 6-axis IMU data array to FFF5
+            float imu_payload[6] = { ax, ay, az, gx, gy, gz };
+            bleImuChar.writeValue((const uint8_t*)imu_payload, 24);
         }
 
         // 🛡️ CDC Guard: Only output if the port has been actively opened by PC.
@@ -463,6 +477,12 @@ void runActiveTinyMLInference() {
     else if (max_label == "class_prefall_alert") winner_class_idx = 3;
     else if (max_label == "class_fall") winner_class_idx = 4;
 
+    // [v13] Update Wireless BLE active class & confidence characteristics
+    if (BLE.connected()) {
+        bleWinnerClassChar.writeValue((uint8_t)winner_class_idx);
+        bleWinnerConfChar.writeValue((uint8_t)(winner_confidence * 100.0f));
+    }
+
     // Set active flag to 1 if confidence threshold is met
     if (max_val > 0.50) {
         if (max_label == "class_static") {
@@ -488,7 +508,7 @@ void runActiveTinyMLInference() {
     // 🖥️ 12.5Hz Diagnostic Monitor (Visual Comfort Monitor: 2.5Hz)
     #if MONITOR_MODE == 0
     static int diag_decimation = 0;
-    diag_decimation++;
+    diag_decimation++;prob_stairs
     if (diag_decimation >= 5) { // 5 * 80ms = 400ms refresh rate!
         diag_decimation = 0;
         if (Serial) {
